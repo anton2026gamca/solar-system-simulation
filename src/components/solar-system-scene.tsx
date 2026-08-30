@@ -5,7 +5,7 @@ import { useFrame, useLoader } from '@react-three/fiber';
 import { CameraControls, Line, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { AdvancedAstronomyEngine, REALISTIC_PLANETS } from '@/utils/astronomy-engine';
-import { Mea_Culpa } from 'next/font/google';
+import Earth from './earth/earth';
 
 const AU_SCALE = 25;
 
@@ -27,6 +27,29 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
   const milkyWayBackground = useLoader(THREE.TextureLoader, "/textures/milkyway/milkyway.jpg")
   milkyWayBackground.mapping = THREE.EquirectangularReflectionMapping;
   milkyWayBackground.colorSpace = THREE.SRGBColorSpace
+
+  const [
+    earthDayTexture,
+    earthNightTexture,
+    earthLightsTexture,
+    earthCloudsTexture,
+    earthSpecularTexture,
+    earthBumpTexture,
+  ] = useLoader(
+    THREE.TextureLoader,
+    [
+      "/textures/earth/earth_day.jpg",
+      "/textures/earth/earth_night.jpg",
+      "/textures/earth/earth_lights.jpg",
+      "/textures/earth/earth_clouds.jpg",
+      "/textures/earth/earth_specular.jpg",
+      "/textures/earth/earth_bump.jpg",
+    ]
+  );
+
+  const sharedSunPos = useRef(new THREE.Vector3());
+  const sharedMoonPos = useRef(new THREE.Vector3());
+  const sharedCamPos = useRef(new THREE.Vector3());
 
 
   useEffect(() => {
@@ -83,13 +106,14 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
     return { planetOrbits, moonOrbits };
   }, [commitToken, initialDate]);
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     if (timeScale !== 0) {
       timelineRef.current += delta * 1000 * timeScale;
     }
     const activeFrameDate = new Date(timelineRef.current);
 
     let focusShiftVector = new THREE.Vector3(0, 0, 0);
+    let currentMoonWorldPos = new THREE.Vector3();
 
     Object.entries(REALISTIC_PLANETS).forEach(([pKey, profile]) => {
       const pGroup = planetRefs.current[pKey];
@@ -112,11 +136,33 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
           const mGroup = moonGroupRefs.current[uniqueMoonKey];
           if (mGroup) {
             const mPos = AdvancedAstronomyEngine.getMoonLocalPosition(mProfile, activeFrameDate);
-            mGroup.position.set(mPos.x * AU_SCALE, mPos.z * AU_SCALE, mPos.y * AU_SCALE);
+            const mX = mPos.x * AU_SCALE;
+            const mY = mPos.z * AU_SCALE;
+            const mZ = mPos.y * AU_SCALE;
+
+            mGroup.position.set(mX, mY, mZ);
+
+            if (pKey === 'earth' && mKey === 'moon') {
+              currentMoonWorldPos.set(mX, mY, mZ);
+            }
           }
         });
       }
     });
+
+    const earthGroup = planetRefs.current['earth'];
+    if (earthGroup) {
+      sharedSunPos.current.copy(earthGroup.position).multiplyScalar(-1);
+
+      sharedMoonPos.current.copy(currentMoonWorldPos);
+
+      if (systemContainerRef.current) {
+        sharedCamPos.current
+          .copy(state.camera.position)
+          .sub(systemContainerRef.current.position)
+          .sub(earthGroup.position);
+      }
+    }
 
     if (systemContainerRef.current) {
       if (focusTarget === 'solar') {
@@ -133,7 +179,7 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
     <>
       <primitive attach="background" object={milkyWayBackground} />
       <group>
-        <CameraControls ref={controlsRef} minDistance={0.00001} maxDistance={6000} />
+        <CameraControls ref={controlsRef} minDistance={0.001} maxDistance={6000} />
 
         <group ref={systemContainerRef}>
           <mesh>
@@ -168,27 +214,28 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
                 ref={(el) => { if (el) planetRefs.current[pKey] = el; }}
                 position={[startPos.x * AU_SCALE, startPos.z * AU_SCALE, startPos.y * AU_SCALE]}
               >
-                <mesh>
-                  <sphereGeometry args={[planetRadius, 64, 64]} />
-                  <meshStandardMaterial
-                    color={profile.color}
-                    roughness={0.6}
-                    metalness={0.0}
+                {pKey === 'earth' ? (
+                  <Earth
+                    radius={planetRadius}
+                    sunPosition={sharedSunPos.current}
+                    moonPosition={sharedMoonPos.current}
+                    cameraPosition={sharedCamPos.current}
+                    earthDayTexture={earthDayTexture}
+                    earthNightTexture={earthNightTexture}
+                    earthLightsTexture={earthLightsTexture}
+                    earthCloudsTexture={earthCloudsTexture}
+                    earthSpecularTexture={earthSpecularTexture}
+                    earthBumbTexture={earthBumpTexture}
                   />
-                </mesh>
-
-                {pKey === 'earth' && (
-                  <group>
-                    <mesh scale={[1.015, 1.015, 1.015]}>
-                      <sphereGeometry args={[planetRadius, 32, 32]} />
-                      <meshStandardMaterial color="#4ca6ff" transparent opacity={0.15} blending={THREE.AdditiveBlending} side={THREE.BackSide} />
-                    </mesh>
-
-                    <mesh scale={[1.006, 1.006, 1.006]}>
-                      <sphereGeometry args={[planetRadius, 32, 32]} />
-                      <meshStandardMaterial color="#ffffff" transparent opacity={0.25} roughness={0.9} />
-                    </mesh>
-                  </group>
+                ) : (
+                  <mesh>
+                    <sphereGeometry args={[planetRadius, 64, 64]} />
+                    <meshStandardMaterial
+                      color={profile.color}
+                      roughness={0.6}
+                      metalness={0.0}
+                    />
+                  </mesh>
                 )}
 
                 {pKey === 'saturn' && (
