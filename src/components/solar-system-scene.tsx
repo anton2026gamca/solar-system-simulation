@@ -19,6 +19,7 @@ interface SolarSceneProps {
 export default function SolarSystemScene({ initialDate, commitToken, timeScale, focusTarget }: SolarSceneProps) {
   const systemContainerRef = useRef<THREE.Group>(null);
   const planetRefs = useRef<Record<string, THREE.Group>>({});
+  const planetMeshRefs = useRef<Record<string, THREE.Mesh | THREE.Group>>({});
   const moonGroupRefs = useRef<Record<string, THREE.Group>>({});
   const controlsRef = useRef<any>(null);
 
@@ -130,6 +131,12 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
         }
       }
 
+      const pMesh = planetMeshRefs.current[pKey];
+      if (pMesh) {
+        const computedEuler = AdvancedAstronomyEngine.getPlanetEulerRotation(profile, activeFrameDate);
+        pMesh.rotation.copy(computedEuler);
+      }
+
       if (profile.moons) {
         Object.entries(profile.moons).forEach(([mKey, mProfile]) => {
           const uniqueMoonKey = pKey + '_' + mKey;
@@ -215,20 +222,22 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
                 position={[startPos.x * AU_SCALE, startPos.z * AU_SCALE, startPos.y * AU_SCALE]}
               >
                 {pKey === 'earth' ? (
-                  <Earth
-                    radius={planetRadius}
-                    sunPosition={sharedSunPos.current}
-                    moonPosition={sharedMoonPos.current}
-                    cameraPosition={sharedCamPos.current}
-                    earthDayTexture={earthDayTexture}
-                    earthNightTexture={earthNightTexture}
-                    earthLightsTexture={earthLightsTexture}
-                    earthCloudsTexture={earthCloudsTexture}
-                    earthSpecularTexture={earthSpecularTexture}
-                    earthBumbTexture={earthBumpTexture}
-                  />
+                  <group ref={(el) => { if (el) planetMeshRefs.current[pKey] = el; }}>
+                    <Earth
+                      radius={planetRadius}
+                      sunPosition={sharedSunPos.current}
+                      moonPosition={sharedMoonPos.current}
+                      cameraPosition={sharedCamPos.current}
+                      earthDayTexture={earthDayTexture}
+                      earthNightTexture={earthNightTexture}
+                      earthLightsTexture={earthLightsTexture}
+                      earthCloudsTexture={earthCloudsTexture}
+                      earthSpecularTexture={earthSpecularTexture}
+                      earthBumbTexture={earthBumpTexture}
+                    />
+                  </group>
                 ) : (
-                  <mesh>
+                  <mesh ref={(el) => { if (el) planetMeshRefs.current[pKey] = el; }}>
                     <sphereGeometry args={[planetRadius, 64, 64]} />
                     <meshStandardMaterial
                       color={profile.color}

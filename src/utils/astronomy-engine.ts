@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+
 export interface Vector3D { x: number; y: number; z: number; }
 
 export interface OrbitalElements {
@@ -22,10 +24,20 @@ export interface MoonProfile {
   meanLong0: number;
 }
 
+export interface PlanetRotationElements {
+  ra0: number;
+  raCy: number;
+  dec0: number;
+  decCy: number;
+  w0: number;
+  wDay: number;
+}
+
 export interface PlanetProfile {
   name: string;
   color: string;
   radiusAu: number;
+  rotation: PlanetRotationElements;
   elements: OrbitalElements;
   moons?: Record<string, MoonProfile>;
 }
@@ -33,42 +45,24 @@ export interface PlanetProfile {
 export const REALISTIC_PLANETS: Record<string, PlanetProfile> = {
   mercury: {
     name: 'Mercury', color: '#9e9e9e', radiusAu: 0.0000163,
-    elements: {
-      a0: 0.38709893, aCy: 0.00000066, e0: 0.20563069, eCy: 0.00002040,
-      i0: 7.00487, iCy: -0.00594, L0: 252.25084, LCy: 149472.67411,
-      longPeri0: 77.45645, longPeriCy: 0.15901, longNode0: 48.33167, longNodeCy: -0.12531
-    }
+    rotation: { ra0: 281.01, raCy: -0.033, dec0: 61.45, decCy: -0.005, w0: 329.54, wDay: 6.1385025 },
+    elements: { a0: 0.38709893, aCy: 0.00000066, e0: 0.20563069, eCy: 0.00002040, i0: 7.00487, iCy: -0.00594, L0: 252.25084, LCy: 149472.67411, longPeri0: 77.45645, longPeriCy: 0.15901, longNode0: 48.33167, longNodeCy: -0.12531 }
   },
   venus: {
     name: 'Venus', color: '#e3bb76', radiusAu: 0.0000404,
-    elements: {
-      a0: 0.72333199, aCy: 0.00000092, e0: 0.00677323, eCy: -0.00004776,
-      i0: 3.39471, iCy: -0.00078, L0: 181.97973, LCy: 58517.81538,
-      longPeri0: 131.53298, longPeriCy: 0.00213, longNode0: 76.68069, longNodeCy: -0.27769
-    }
+    rotation: { ra0: 272.76, raCy: 0.0, dec0: 67.16, decCy: 0.0, w0: 160.20, wDay: -1.4813688 },
+    elements: { a0: 0.72333199, aCy: 0.00000092, e0: 0.00677323, eCy: -0.00004776, i0: 3.39471, iCy: -0.00078, L0: 181.97973, LCy: 58517.81538, longPeri0: 131.53298, longPeriCy: 0.00213, longNode0: 76.68069, longNodeCy: -0.27769 }
   },
   earth: {
     name: 'Earth', color: '#2f82c4', radiusAu: 0.0000426,
-    elements: {
-      a0: 1.00000011, aCy: -0.00000005, e0: 0.01671022, eCy: -0.00003804,
-      i0: 0.00005, iCy: -0.01300, L0: 100.46435, LCy: 36000.76983,
-      longPeri0: 102.94719, longPeriCy: 0.32225, longNode0: -11.26064, longNodeCy: -0.41322
-    },
-    moons: {
-      moon: {
-        name: 'The Moon', color: '#b0bec5', radiusAu: 0.0000116,
-        a: 0.00257, e: 0.0549, i: 5.145, T: 27.32166,
-        longNode: 125.08, longPeri: 83.35, meanLong0: 135.27
-      }
-    }
+    rotation: { ra0: 0.0, raCy: -0.641, dec0: 90.0, decCy: -0.557, w0: 190.147, wDay: 360.9856235 },
+    elements: { a0: 1.00000011, aCy: -0.00000005, e0: 0.01671022, eCy: -0.00003804, i0: 0.00005, iCy: -0.01300, L0: 100.46435, LCy: 36000.76983, longPeri0: 102.94719, longPeriCy: 0.32225, longNode0: -11.26064, longNodeCy: -0.41322 },
+    moons: { moon: { name: 'The Moon', color: '#b0bec5', radiusAu: 0.0000116, a: 0.00257, e: 0.0549, i: 5.145, T: 27.32166, longNode: 125.08, longPeri: 83.35, meanLong0: 135.27 } }
   },
   mars: {
     name: 'Mars', color: '#e06138', radiusAu: 0.0000227,
-    elements: {
-      a0: 1.52366231, aCy: -0.00000497, e0: 0.09341233, eCy: 0.00011902,
-      i0: 1.85061, iCy: -0.00724, L0: 355.45332, LCy: 19140.30268,
-      longPeri0: 336.04084, longPeriCy: 0.44388, longNode0: 49.57854, longNodeCy: -0.29411
-    },
+    rotation: { ra0: 317.68, raCy: -0.106, dec0: 52.89, decCy: -0.061, w0: 176.63, wDay: 350.8919822 },
+    elements: { a0: 1.52366231, aCy: -0.00000497, e0: 0.09341233, eCy: 0.00011902, i0: 1.85061, iCy: -0.00724, L0: 355.45332, LCy: 19140.30268, longPeri0: 336.04084, longPeriCy: 0.44388, longNode0: 49.57854, longNodeCy: -0.29411 },
     moons: {
       phobos: { name: 'Phobos', color: '#8d6e63', radiusAu: 0.00000007, a: 0.000062, e: 0.0151, i: 1.093, T: 0.31891, longNode: 49.57, longPeri: 336.04, meanLong0: 10.0 },
       deimos: { name: 'Deimos', color: '#bcaaa4', radiusAu: 0.00000004, a: 0.000156, e: 0.0002, i: 1.793, T: 1.26244, longNode: 49.57, longPeri: 336.04, meanLong0: 250.0 }
@@ -76,11 +70,8 @@ export const REALISTIC_PLANETS: Record<string, PlanetProfile> = {
   },
   jupiter: {
     name: 'Jupiter', color: '#d4a373', radiusAu: 0.0004673,
-    elements: {
-      a0: 5.20336301, aCy: 0.00060737, e0: 0.04839266, eCy: -0.00012880,
-      i0: 1.30530, iCy: -0.00415, L0: 34.40438, LCy: 3034.74612,
-      longPeri0: 14.75385, longPeriCy: 0.19152, longNode0: 100.55615, longNodeCy: 0.20426
-    },
+    rotation: { ra0: 268.05, raCy: -0.009, dec0: 64.49, decCy: 0.003, w0: 284.95, wDay: 870.5360000 },
+    elements: { a0: 5.20336301, aCy: 0.00060737, e0: 0.04839266, eCy: -0.00012880, i0: 1.30530, iCy: -0.00415, L0: 34.40438, LCy: 3034.74612, longPeri0: 14.75385, longPeriCy: 0.19152, longNode0: 100.55615, longNodeCy: 0.20426 },
     moons: {
       io: { name: 'Io', color: '#e6c229', radiusAu: 0.0000121, a: 0.002819, e: 0.0041, i: 0.050, T: 1.76913, longNode: 100.55, longPeri: 14.75, meanLong0: 20.0 },
       europa: { name: 'Europa', color: '#b8b8b8', radiusAu: 0.0000104, a: 0.004486, e: 0.0090, i: 0.471, T: 3.55118, longNode: 100.55, longPeri: 14.75, meanLong0: 90.0 },
@@ -97,11 +88,8 @@ export const REALISTIC_PLANETS: Record<string, PlanetProfile> = {
   },
   saturn: {
     name: 'Saturn', color: '#f4e2bb', radiusAu: 0.0003893,
-    elements: {
-      a0: 9.53707032, aCy: -0.00301530, e0: 0.05415060, eCy: -0.00036762,
-      i0: 2.48446, iCy: 0.00193, L0: 49.94432, LCy: 1222.11379,
-      longPeri0: 92.43194, longPeriCy: -0.41897, longNode0: 113.71504, longNodeCy: -0.28867
-    },
+    rotation: { ra0: 40.58, raCy: -0.036, dec0: 83.54, decCy: -0.004, w0: 38.90, wDay: 810.7939024 },
+    elements: { a0: 9.53707032, aCy: -0.00301530, e0: 0.05415060, eCy: -0.00036762, i0: 2.48446, iCy: 0.00193, L0: 49.94432, LCy: 1222.11379, longPeri0: 92.43194, longPeriCy: -0.41897, longNode0: 113.71504, longNodeCy: -0.28867 },
     moons: {
       mimas: { name: 'Mimas', color: '#b0b0b0', radiusAu: 0.0000013, a: 0.001240, e: 0.0196, i: 1.574, T: 0.94242, longNode: 113.71, longPeri: 92.43, meanLong0: 15.0 },
       enceladus: { name: 'Enceladus', color: '#ffffff', radiusAu: 0.0000017, a: 0.001590, e: 0.0047, i: 0.019, T: 1.37021, longNode: 113.71, longPeri: 92.43, meanLong0: 85.0 },
@@ -114,11 +102,8 @@ export const REALISTIC_PLANETS: Record<string, PlanetProfile> = {
   },
   uranus: {
     name: 'Uranus', color: '#aee5e6', radiusAu: 0.0001693,
-    elements: {
-      a0: 19.19126393, aCy: 0.00152025, e0: 0.04716771, eCy: -0.00019150,
-      i0: 0.76986, iCy: -0.00116, L0: 313.23218, LCy: 428.48202,
-      longPeri0: 170.96424, longPeriCy: 0.40805, longNode0: 74.22988, longNodeCy: -0.09420
-    },
+    rotation: { ra0: 257.31, raCy: 0.0, dec0: -15.18, decCy: 0.0, w0: 203.81, wDay: -501.1600928 },
+    elements: { a0: 19.19126393, aCy: 0.00152025, e0: 0.04716771, eCy: -0.00019150, i0: 0.76986, iCy: -0.00116, L0: 313.23218, LCy: 428.48202, longPeri0: 170.96424, longPeriCy: 0.40805, longNode0: 74.22988, longNodeCy: -0.09420 },
     moons: {
       ariel: { name: 'Ariel', color: '#cfebec', radiusAu: 0.0000039, a: 0.001280, e: 0.0012, i: 0.260, T: 2.52038, longNode: 74.22, longPeri: 170.96, meanLong0: 45.0 },
       umbriel: { name: 'Umbriel', color: '#8fa4a6', radiusAu: 0.0000039, a: 0.001780, e: 0.0039, i: 0.200, T: 4.14418, longNode: 74.22, longPeri: 170.96, meanLong0: 135.0 },
@@ -128,14 +113,9 @@ export const REALISTIC_PLANETS: Record<string, PlanetProfile> = {
   },
   neptune: {
     name: 'Neptune', color: '#457b9d', radiusAu: 0.0001643,
-    elements: {
-      a0: 30.06896348, aCy: -0.00125196, e0: 0.00858587, eCy: 0.00002514,
-      i0: 1.76917, iCy: -0.00001, L0: 304.88003, LCy: 218.45945,
-      longPeri0: 44.97135, longPeriCy: -0.32241, longNode0: 131.72169, longNodeCy: -0.00256
-    },
-    moons: {
-      triton: { name: 'Triton', color: '#d2e4f0', radiusAu: 0.0000091, a: 0.002369, e: 0.0000, i: 156.885, T: -5.87685, longNode: 131.72, longPeri: 44.97, meanLong0: 90.0 }
-    }
+    rotation: { ra0: 299.33, raCy: 0.0, dec0: 42.95, decCy: 0.0, w0: 253.18, wDay: 536.3128492 },
+    elements: { a0: 30.06896348, aCy: -0.00125196, e0: 0.00858587, eCy: 0.00002514, i0: 1.76917, iCy: -0.00001, L0: 304.88003, LCy: 218.45945, longPeri0: 44.97135, longPeriCy: -0.32241, longNode0: 131.72169, longNodeCy: -0.00256 },
+    moons: { triton: { name: 'Triton', color: '#d2e4f0', radiusAu: 0.0000091, a: 0.002369, e: 0.0000, i: 156.885, T: -5.87685, longNode: 131.72, longPeri: 44.97, meanLong0: 90.0 } }
   }
 };
 
@@ -180,6 +160,41 @@ export class AdvancedAstronomyEngine {
       y: xOrbital * (sinNode * cosOmega + cosNode * sinOmega * cosInc) - yOrbital * (sinNode * sinOmega - cosNode * cosOmega * cosInc),
       z: xOrbital * (sinOmega * sinInc) + yOrbital * (cosOmega * sinInc)
     };
+  }
+
+  public static getPlanetEulerRotation(planet: PlanetProfile, date: Date): THREE.Euler {
+    const J2000 = 2451545.0;
+    const julianDate = (date.getTime() / 86400000) + 2440587.5;
+    const T = (julianDate - J2000) / 36525;
+    const D = julianDate - J2000;
+
+    const r = planet.rotation;
+
+    const ra = (r.ra0 + r.raCy * T) * (Math.PI / 180);
+    const dec = (r.dec0 + r.decCy * T) * (Math.PI / 180);
+
+    const W = (r.w0 + r.wDay * D) * (Math.PI / 180);
+
+    const poleMatrix = new THREE.Matrix4();
+
+    const poleDirection = new THREE.Vector3(
+      Math.cos(dec) * Math.cos(ra),
+      Math.sin(dec),
+      Math.cos(dec) * Math.sin(ra)
+    ).normalize();
+
+    const upVector = new THREE.Vector3(0, 1, 0);
+    const quaternionAxis = new THREE.Quaternion().setFromUnitVectors(upVector, poleDirection);
+    poleMatrix.makeRotationFromQuaternion(quaternionAxis);
+
+    const spinMatrix = new THREE.Matrix4().makeRotationY(W);
+    const finalTransformMatrix = new THREE.Matrix4().multiplyMatrices(poleMatrix, spinMatrix);
+
+    const finalEuler = new THREE.Euler().setFromRotationMatrix(finalTransformMatrix, 'YXZ');
+
+    finalEuler.y += Math.PI;
+
+    return finalEuler;
   }
 
   public static getOrbitPath(planet: PlanetProfile, date: Date, segments: number = 180): Vector3D[] {
