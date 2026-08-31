@@ -51,9 +51,12 @@ void main() {
   vec3 moonDirection = normalize(uMoonPosition - vWorldPosition);
   vec3 viewDirection = normalize(uCameraPosition - vWorldPosition);
 
-  float sunlight = dot(normal, sunDirection);
-  float dayFactor = smoothstep(-0.12, 0.20, sunlight);
+  float sunlightTransition = dot(baseNormal, sunDirection);
+  float dayFactor = smoothstep(-0.12, 0.20, sunlightTransition);
   float nightFactor = 1.0 - dayFactor;
+
+  float diffuseSun = max(dot(normal, sunDirection), 0.2);
+  vec3 shadedDayColor = dayColor * diffuseSun;
 
   vec3 isolatedCities = nightColor * lightFactor * uNightLightsIntensity;
 
@@ -71,7 +74,8 @@ void main() {
 
   vec3 darkSideColor = isolatedCities + moonTerrain + moonSpecularColor;
 
-  vec3 finalColor = (dayColor * dayFactor) + (darkSideColor * nightFactor);
+  vec3 finalColor =
+      (shadedDayColor * dayFactor) + (darkSideColor * nightFactor);
 
   gl_FragColor = vec4(finalColor, 1.0);
 }

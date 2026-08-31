@@ -87,7 +87,7 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
         focusTarget === 'saturn' ||
         focusTarget === 'uranus' ||
         focusTarget === 'neptune'
-      ) ? 0.5 : 0.1
+      ) ? 0.5 : 0.01
       controlsRef.current.setLookAt(offset, offset * 0.4, offset, 0, 0, 0, true);
     }
   }, [focusTarget]);
@@ -186,7 +186,7 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
     <>
       <primitive attach="background" object={milkyWayBackground} />
       <group>
-        <CameraControls ref={controlsRef} minDistance={0.001} maxDistance={6000} />
+        <CameraControls ref={controlsRef} minDistance={0.0015} maxDistance={6000} />
 
         <group ref={systemContainerRef}>
           <mesh>
