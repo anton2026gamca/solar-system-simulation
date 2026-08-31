@@ -194,7 +194,7 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
             <meshBasicMaterial color="#fff2cc" />
             <Html position={new THREE.Vector3(0, 0, 0)} className="pointer-events-none select-none whitespace-nowrap flex flex-col items-center transform -translate-x-1/2 -translate-y-full">
               <span className="text-white text-xs font-mono font-bold uppercase tracking-widest mb-1 block">SUN</span>
-              <div className="w-px h-13.75 bg-white/60" />
+              <div className="w-px h-13.75 mb-1 bg-white/60" />
             </Html>
           </mesh>
           <mesh scale={[2, 2, 2]}>
@@ -206,7 +206,7 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
             <meshBasicMaterial color="#fff2cc" side={THREE.BackSide} opacity={0.1} transparent depthWrite={false} />
           </mesh>
 
-          {systemPaths.planetOrbits.map((o) => (
+          {focusTarget !== 'earth' && systemPaths.planetOrbits.map((o) => (
             <Line key={o.key} points={o.vectors} color={o.color} lineWidth={2} transparent opacity={0.6} />
           ))}
 
@@ -271,14 +271,14 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
                     <span className="text-white text-xs font-mono font-medium uppercase tracking-wider mb-1 block">
                       {profile.name}
                     </span>
-                    <div className="w-px h-10 bg-white/50" />
+                    <div className="w-px h-10 mb-1 bg-white/50" />
                   </Html>
                 )}
 
                 {systemPaths.moonOrbits[pKey]?.map((mOrbit) => {
                   const isIrregularOrbit = ['himalia', 'elara', 'lysithea', 'ananke', 'carme', 'pasiphae', 'sinope'].includes(mOrbit.key);
 
-                  if (isIrregularOrbit && focusTarget !== 'jupiter') {
+                  if (isIrregularOrbit && focusTarget !== 'jupiter' || focusTarget === 'earth') {
                     return null;
                   }
 
@@ -315,7 +315,7 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
                           <span className="text-white text-[9px] font-mono opacity-75 lowercase mb-1 block">
                             {mProfile.name}
                           </span>
-                          <div className="w-px h-5 bg-white/40" />
+                          <div className="w-px h-5 mb-1 bg-white/40" />
                         </Html>
                       )}
                     </group>
