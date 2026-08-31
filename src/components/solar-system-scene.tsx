@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useEffect, useRef } from 'react';
+import { useMemo, useEffect, useRef, useState } from 'react';
 import { useFrame, useLoader } from '@react-three/fiber';
 import { CameraControls, Line, Html } from '@react-three/drei';
 import * as THREE from 'three';
@@ -8,15 +8,40 @@ import { AdvancedAstronomyEngine, REALISTIC_PLANETS } from '@/utils/astronomy-en
 import Earth from './earth/earth';
 
 const AU_SCALE = 25;
+const MOON_PATH_UPDATE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
-interface SolarSceneProps {
+function resolvePlanetPosition(pKey: string, profile: any, date: Date) {
+  return pKey === 'earth'
+    ? AdvancedAstronomyEngine.getEarthPositionPrecise(date)
+    : AdvancedAstronomyEngine.getPlanetPosition(profile, date);
+}
+
+function resolvePlanetPath(pKey: string, profile: any, date: Date, segments: number) {
+  return pKey === 'earth'
+    ? AdvancedAstronomyEngine.getEarthPathPrecise(segments, date)
+    : AdvancedAstronomyEngine.getOrbitPath(profile, date, segments);
+}
+
+function resolveMoonPosition(pKey: string, mKey: string, mProfile: any, date: Date) {
+  return (pKey === 'earth' && mKey === 'moon')
+    ? AdvancedAstronomyEngine.getEarthMoonPositionPrecise(date)
+    : AdvancedAstronomyEngine.getMoonLocalPosition(mProfile, date);
+}
+
+function resolveMoonPath(pKey: string, mKey: string, mProfile: any, date: Date, segments: number) {
+  return (pKey === 'earth' && mKey === 'moon')
+    ? AdvancedAstronomyEngine.getEarthMoonPathPrecise(segments, date)
+    : AdvancedAstronomyEngine.getMoonLocalPath(mProfile, segments);
+}
+
+interface SolarSystemSceneProps {
   initialDate: Date;
   commitToken: number;
   timeScale: number;
   focusTarget: string;
 }
 
-export default function SolarSystemScene({ initialDate, commitToken, timeScale, focusTarget }: SolarSceneProps) {
+export default function SolarSystemScene({ initialDate, commitToken, timeScale, focusTarget }: SolarSystemSceneProps) {
   const systemContainerRef = useRef<THREE.Group>(null);
   const planetRefs = useRef<Record<string, THREE.Group>>({});
   const planetMeshRefs = useRef<Record<string, THREE.Mesh | THREE.Group>>({});
@@ -52,15 +77,20 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
   const sharedMoonPos = useRef(new THREE.Vector3());
   const sharedCamPos = useRef(new THREE.Vector3());
 
+  const [earthMoonLivePath, setEarthMoonLivePath] = useState<THREE.Vector3[] | null>(null);
+  const lastMoonPathUpdateRef = useRef<number>(initialDate.getTime());
+
 
   useEffect(() => {
     timelineRef.current = initialDate.getTime();
+    lastMoonPathUpdateRef.current = initialDate.getTime();
+    setEarthMoonLivePath(null);
     const activeFrameDate = new Date(timelineRef.current);
 
     Object.entries(REALISTIC_PLANETS).forEach(([pKey, profile]) => {
       const pGroup = planetRefs.current[pKey];
       if (pGroup) {
-        const pPos = AdvancedAstronomyEngine.getPlanetPosition(profile, activeFrameDate);
+        const pPos = resolvePlanetPosition(pKey, profile, activeFrameDate);
         pGroup.position.set(pPos.x * AU_SCALE, pPos.z * AU_SCALE, pPos.y * AU_SCALE);
       }
 
@@ -68,7 +98,7 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
         Object.entries(profile.moons).forEach(([mKey, mProfile]) => {
           const mGroup = moonGroupRefs.current[pKey + '_' + mKey];
           if (mGroup) {
-            const mPos = AdvancedAstronomyEngine.getMoonLocalPosition(mProfile, activeFrameDate);
+            const mPos = resolveMoonPosition(pKey, mKey, mProfile, activeFrameDate);
             mGroup.position.set(mPos.x * AU_SCALE, mPos.z * AU_SCALE, mPos.y * AU_SCALE);
           }
         });
@@ -95,11 +125,11 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
   const systemPaths = useMemo(() => {
     const planetOrbits: any[] = []; const moonOrbits: Record<string, any[]> = {};
     Object.entries(REALISTIC_PLANETS).forEach(([pKey, profile]) => {
-      const pPath = AdvancedAstronomyEngine.getOrbitPath(profile, initialDate, 180);
+      const pPath = resolvePlanetPath(pKey, profile, initialDate, 180);
       planetOrbits.push({ key: pKey, color: profile.color, vectors: pPath.map(p => new THREE.Vector3(p.x * AU_SCALE, p.z * AU_SCALE, p.y * AU_SCALE)) });
       if (profile.moons) {
         moonOrbits[pKey] = Object.entries(profile.moons).map(([mKey, mProfile]) => {
-          const mPath = AdvancedAstronomyEngine.getMoonLocalPath(mProfile, 64);
+          const mPath = resolveMoonPath(pKey, mKey, mProfile, initialDate, 64);
           return { key: mKey, color: mProfile.color, vectors: mPath.map(p => new THREE.Vector3(p.x * AU_SCALE, p.z * AU_SCALE, p.y * AU_SCALE)) };
         });
       }
@@ -119,7 +149,7 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
     Object.entries(REALISTIC_PLANETS).forEach(([pKey, profile]) => {
       const pGroup = planetRefs.current[pKey];
       if (pGroup) {
-        const pos = AdvancedAstronomyEngine.getPlanetPosition(profile, activeFrameDate);
+        const pos = resolvePlanetPosition(pKey, profile, activeFrameDate);
         const targetX = pos.x * AU_SCALE;
         const targetY = pos.z * AU_SCALE;
         const targetZ = pos.y * AU_SCALE;
@@ -142,7 +172,7 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
           const uniqueMoonKey = pKey + '_' + mKey;
           const mGroup = moonGroupRefs.current[uniqueMoonKey];
           if (mGroup) {
-            const mPos = AdvancedAstronomyEngine.getMoonLocalPosition(mProfile, activeFrameDate);
+            const mPos = resolveMoonPosition(pKey, mKey, mProfile, activeFrameDate);
             const mX = mPos.x * AU_SCALE;
             const mY = mPos.z * AU_SCALE;
             const mZ = mPos.y * AU_SCALE;
@@ -169,6 +199,12 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
           .sub(systemContainerRef.current.position)
           .sub(earthGroup.position);
       }
+    }
+
+    if (Math.abs(timelineRef.current - lastMoonPathUpdateRef.current) > MOON_PATH_UPDATE_INTERVAL_MS) {
+      lastMoonPathUpdateRef.current = timelineRef.current;
+      const freshMoonPath = AdvancedAstronomyEngine.getEarthMoonPathPrecise(64, activeFrameDate);
+      setEarthMoonLivePath(freshMoonPath.map(p => new THREE.Vector3(p.x * AU_SCALE, p.z * AU_SCALE, p.y * AU_SCALE)));
     }
 
     if (systemContainerRef.current) {
@@ -211,7 +247,7 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
           ))}
 
           {Object.entries(REALISTIC_PLANETS).map(([pKey, profile]) => {
-            const startPos = AdvancedAstronomyEngine.getPlanetPosition(profile, initialDate);
+            const startPos = resolvePlanetPosition(pKey, profile, initialDate);
 
             const planetRadius = profile.radiusAu * AU_SCALE;
 
@@ -279,19 +315,22 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
                 {systemPaths.moonOrbits[pKey]?.map((mOrbit) => {
                   const isIrregularOrbit = ['himalia', 'elara', 'lysithea', 'ananke', 'carme', 'pasiphae', 'sinope'].includes(mOrbit.key);
 
-                  if (isIrregularOrbit && focusTarget !== 'jupiter' || focusTarget === 'earth') {
+                  if (isIrregularOrbit && focusTarget !== 'jupiter') {
                     return null;
                   }
 
+                  const isEarthMoon = pKey === 'earth' && mOrbit.key === 'moon';
+                  const points = (isEarthMoon && earthMoonLivePath) ? earthMoonLivePath : mOrbit.vectors;
+
                   return (
-                    <Line key={mOrbit.key} points={mOrbit.vectors} color={mOrbit.color} lineWidth={1} opacity={0.6} transparent />
+                    <Line key={mOrbit.key} points={points} color={mOrbit.color} lineWidth={1} opacity={0.6} transparent />
                   );
                 })}
 
                 {profile.moons && Object.entries(profile.moons).map(([mKey, mProfile]) => {
                   const moonRadius = mProfile.radiusAu * AU_SCALE;
                   const uniqueMoonKey = pKey + '_' + mKey;
-                  const startMoonPos = AdvancedAstronomyEngine.getMoonLocalPosition(mProfile, initialDate);
+                  const startMoonPos = resolveMoonPosition(pKey, mKey, mProfile, initialDate);
 
                   const isIrregularMoon = ['himalia', 'elara', 'lysithea', 'ananke', 'carme', 'pasiphae', 'sinope'].includes(mKey);
                   if (isIrregularMoon && focusTarget !== 'jupiter') {
@@ -330,4 +369,3 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
     </>
   );
 }
-
