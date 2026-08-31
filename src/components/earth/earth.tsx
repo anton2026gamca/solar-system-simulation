@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useRef } from "react";
-import { useFrame, useLoader } from "@react-three/fiber";
+import { RefObject, useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
 import earthVertexShader from './earth.vert';
@@ -17,6 +17,7 @@ import cloudFragmentShader from './clouds.frag';
 
 interface EarthProps {
   radius: number,
+  time: RefObject<number>,
   sunPosition: THREE.Vector3,
   moonPosition: THREE.Vector3,
   cameraPosition: THREE.Vector3,
@@ -28,7 +29,7 @@ interface EarthProps {
   earthBumbTexture: THREE.Texture,
 }
 
-export default function Earth({ radius, sunPosition, moonPosition, cameraPosition, earthDayTexture, earthNightTexture, earthLightsTexture, earthCloudsTexture, earthSpecularTexture, earthBumbTexture }: EarthProps) {
+export default function Earth({ radius, time, sunPosition, moonPosition, cameraPosition, earthDayTexture, earthNightTexture, earthLightsTexture, earthCloudsTexture, earthSpecularTexture, earthBumbTexture }: EarthProps) {
   const earthRef = useRef<THREE.Mesh>(null);
   const earthCloudsRef = useRef<THREE.Mesh>(null);
 
@@ -68,9 +69,13 @@ export default function Earth({ radius, sunPosition, moonPosition, cameraPositio
     [earthCloudsTexture, sunPosition]
   );
 
-  useFrame((state) => {
+  useFrame((_) => {
     if (cloudMaterialRef.current) {
-      cloudMaterialRef.current.uniforms.uTime.value = state.clock.getElapsedTime();
+      const period = 2 * Math.PI;
+      let speedFactor = 0.001;
+      let rawTime = time.current * 0.001 * speedFactor;
+      let safeTime = rawTime % period;
+      cloudMaterialRef.current.uniforms.uTime.value = safeTime;
     }
   });
 

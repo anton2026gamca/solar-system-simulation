@@ -60,7 +60,7 @@ float snoise(vec3 v) {
 }
 
 void main() {
-  float globalRotation = uTime * 0.001;
+  float globalRotation = uTime * 1.0;
   vec2 baseUv = vUv;
   baseUv.x += globalRotation;
 
@@ -73,9 +73,9 @@ void main() {
   float circleY = sin(angle);
 
   float noiseX =
-      snoise(vec3(circleX * 0.7, circleY * 0.7, baseUv.y * 8.0 + uTime * 0.01));
+      snoise(vec3(circleX * 0.7, circleY * 0.7, baseUv.y * 8.0 + uTime * 2.0));
   float noiseY = snoise(vec3(circleX * 0.5 + 10.0, circleY * 0.5 + 10.0,
-                             baseUv.y * 12.0 + uTime * 0.0075));
+                             baseUv.y * 12.0 + uTime * 3.0));
 
   vec2 fluidUv = baseUv;
   float poleMitigation = sin(vUv.y * 3.14159265);

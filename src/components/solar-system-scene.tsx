@@ -225,6 +225,7 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
                   <group ref={(el) => { if (el) planetMeshRefs.current[pKey] = el; }}>
                     <Earth
                       radius={planetRadius}
+                      time={timelineRef}
                       sunPosition={sharedSunPos.current}
                       moonPosition={sharedMoonPos.current}
                       cameraPosition={sharedCamPos.current}
