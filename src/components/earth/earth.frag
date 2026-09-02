@@ -45,7 +45,7 @@ void main() {
   vec3 specularFactor = texture2D(uSpecularTexture, vUv).rgb;
   float maxSpecularChannel =
       max(specularFactor.r, max(specularFactor.g, specularFactor.b));
-  float oceanMask = 1.0 - step(0.01, maxSpecularChannel);
+  float oceanMask = 1.0 - step(0.5, maxSpecularChannel);
 
   vec3 sunDirection = normalize(uSunPosition - vWorldPosition);
   vec3 moonDirection = normalize(uMoonPosition - vWorldPosition);
@@ -55,8 +55,11 @@ void main() {
   float dayFactor = smoothstep(-0.12, 0.20, sunlightTransition);
   float nightFactor = 1.0 - dayFactor;
 
+  vec3 oceanBoost =
+      mix(vec3(1), vec3(1, 1, 2), oceanMask * (1.0 - step(0.08, dayColor.b)));
+
   float diffuseSun = max(dot(normal, sunDirection), 0.2);
-  vec3 shadedDayColor = dayColor * diffuseSun;
+  vec3 shadedDayColor = dayColor * diffuseSun * oceanBoost;
 
   vec3 isolatedCities = nightColor * lightFactor * uNightLightsIntensity;
 

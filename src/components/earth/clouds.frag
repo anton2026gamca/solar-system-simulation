@@ -94,7 +94,7 @@ void main() {
   float sunlight = max(dot(normal, sunDirection), 0.0);
 
   vec3 dayCloudColor = vec3(1.0, 1.0, 1.0);
-  vec3 nightCloudColor = vec3(0.05, 0.06, 0.08);
+  vec3 nightCloudColor = vec3(0.025, 0.03, 0.04);
 
   vec3 cloudColor = mix(nightCloudColor, dayCloudColor, sunlight);
 
