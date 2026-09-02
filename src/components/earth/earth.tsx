@@ -55,9 +55,10 @@ export default function Earth({ radius, time, sunPosition, moonPosition, cameraP
   const atmosphereUniforms = useMemo(
     () => ({
       uSunPosition: { value: sunPosition },
+      uCameraPosition: { value: cameraPosition },
       uIntensity: { value: 0.8 },
     }),
-    [sunPosition]
+    [sunPosition, cameraPosition]
   );
 
   const cloudUniforms = useMemo(
@@ -121,33 +122,7 @@ export default function Earth({ radius, time, sunPosition, moonPosition, cameraP
         />
       </mesh>
 
-      <mesh scale={1.025}>
-        <sphereGeometry
-          args={[
-            radius,
-            128,
-            128,
-          ]}
-        />
-
-        <shaderMaterial
-          vertexShader={
-            atmosphereVertexShader
-          }
-          fragmentShader={
-            atmosphereFragmentShader
-          }
-          uniforms={atmosphereUniforms}
-          transparent
-          blending={
-            THREE.AdditiveBlending
-          }
-          side={THREE.BackSide}
-          depthWrite={false}
-        />
-      </mesh>
-
-      <mesh scale={1.055}>
+      <mesh scale={1.02}>
         <sphereGeometry
           args={[
             radius,
