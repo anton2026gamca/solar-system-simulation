@@ -39,9 +39,11 @@ interface SolarSystemSceneProps {
   commitToken: number;
   timeScale: number;
   focusTarget: string;
+  updateDate: (date: Date) => void;
+  onReady: () => void;
 }
 
-export default function SolarSystemScene({ initialDate, commitToken, timeScale, focusTarget }: SolarSystemSceneProps) {
+export default function SolarSystemScene({ initialDate, commitToken, timeScale, focusTarget, updateDate, onReady }: SolarSystemSceneProps) {
   const systemContainerRef = useRef<THREE.Group>(null);
   const planetRefs = useRef<Record<string, THREE.Group>>({});
   const planetMeshRefs = useRef<Record<string, THREE.Mesh | THREE.Group>>({});
@@ -86,6 +88,8 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
     lastMoonPathUpdateRef.current = initialDate.getTime();
     setEarthMoonLivePath(null);
     const activeFrameDate = new Date(timelineRef.current);
+
+    updateDate(activeFrameDate);
 
     Object.entries(REALISTIC_PLANETS).forEach(([pKey, profile]) => {
       const pGroup = planetRefs.current[pKey];
@@ -142,6 +146,8 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
       timelineRef.current += delta * 1000 * timeScale;
     }
     const activeFrameDate = new Date(timelineRef.current);
+
+    updateDate(activeFrameDate);
 
     let focusShiftVector = new THREE.Vector3(0, 0, 0);
     let currentMoonWorldPos = new THREE.Vector3();
@@ -217,6 +223,20 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
       }
     }
   });
+
+  const renderedFrames = useRef(0)
+  const isTriggered = useRef(false)
+
+  useFrame(() => {
+    if (!isTriggered.current) {
+      renderedFrames.current += 1
+
+      if (renderedFrames.current >= 2) {
+        isTriggered.current = true
+        onReady()
+      }
+    }
+  })
 
   return (
     <>
