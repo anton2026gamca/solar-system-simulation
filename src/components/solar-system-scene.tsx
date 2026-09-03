@@ -6,6 +6,7 @@ import { CameraControls, Line, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { AdvancedAstronomyEngine, REALISTIC_PLANETS } from '@/utils/astronomy-engine';
 import Earth from './earth/earth';
+import Sun from './sun/sun';
 
 const AU_SCALE = 25;
 const MOON_PATH_UPDATE_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -245,22 +246,7 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
         <CameraControls ref={controlsRef} minDistance={0.0015} maxDistance={6000} />
 
         <group ref={systemContainerRef}>
-          <mesh>
-            <sphereGeometry args={[0.11625, 32, 32]} />
-            <meshBasicMaterial color="#fff2cc" />
-            <Html position={new THREE.Vector3(0, 0, 0)} className="pointer-events-none select-none whitespace-nowrap flex flex-col items-center transform -translate-x-1/2 -translate-y-full">
-              <span className="text-white text-xs font-mono font-bold uppercase tracking-widest mb-1 block">SUN</span>
-              <div className="w-px h-13.75 mb-1 bg-white/60" />
-            </Html>
-          </mesh>
-          <mesh scale={[2, 2, 2]}>
-            <sphereGeometry args={[0.11625, 32, 32]} />
-            <meshBasicMaterial color="#fff2cc" side={THREE.BackSide} opacity={0.3} transparent depthWrite={false} />
-          </mesh>
-          <mesh scale={[8, 8, 8]}>
-            <sphereGeometry args={[0.11625, 32, 32]} />
-            <meshBasicMaterial color="#fff2cc" side={THREE.BackSide} opacity={0.1} transparent depthWrite={false} />
-          </mesh>
+          <Sun />
 
           {focusTarget !== 'earth' && systemPaths.planetOrbits.map((o) => (
             <Line key={o.key} points={o.vectors} color={o.color} lineWidth={2} transparent opacity={0.6} />
