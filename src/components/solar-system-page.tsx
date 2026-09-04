@@ -30,16 +30,40 @@ export default function SolarSystemPage() {
   useEffect(() => {
     const now = new Date();
     setInputDate(now.toISOString().split('T')[0]);
-    setInputTime(now.toTimeString().split(' ')[0]);
+    setInputTime(now.toISOString().slice(11, 19));
     setEngineAnchorDate(now);
     setCurrentDate(now);
     setCommitToken(1);
     setIsMounted(true);
   }, []);
 
-  const handleManualSetTime = (e: React.SubmitEvent) => {
-    e.preventDefault(); const c = new Date(inputDate + 'T' + inputTime);
-    if (!isNaN(c.getTime())) { setEngineAnchorDate(c); setCommitToken(prev => prev + 1); }
+  const handleManualSetTime = (e: React.SubmitEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    const normalizeTime = (timeStr: string): string | null => {
+      const parts = timeStr.trim().split(':');
+      if (parts.length < 2 || parts.length > 3) return null;
+
+      const hh = parts[0].padStart(2, '0');
+      const mm = parts[1].padStart(2, '0');
+      const ss = (parts[2] || '0').padStart(2, '0');
+
+      return `${hh}:${mm}:${ss}`;
+    };
+
+    const cleanTime = normalizeTime(inputTime);
+
+    if (cleanTime) {
+      const c = new Date(`${inputDate}T${cleanTime}`);
+
+      if (!isNaN(c.getTime())) {
+        setEngineAnchorDate(c);
+        setCommitToken((prev) => prev + 1);
+        return;
+      }
+    }
+
+    console.error("Invalid time format provided");
   };
 
   if (!isMounted) return <div className="w-full h-screen bg-slate-950" />;
@@ -64,30 +88,20 @@ export default function SolarSystemPage() {
               hour12: false
             });
 
+            const parts = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).formatToParts(new Date());
+            const tzPart = parts.find(part => part.type === 'timeZoneName');
+            const timezoneStr = tzPart?.value ?? 'GMT';
+
             return (
               <div className="flex items-center gap-4 font-sans tracking-widest text-slate-200 selection:bg-cyan-500/30">
                 <span className="text-sm font-light uppercase opacity-80">{dateStr}</span>
                 <span className="h-1 w-1 bg-cyan-500 rounded-full" />
                 <span className="text-sm font-medium text-cyan-100 drop-shadow-[0_0_8px_rgba(34,211,238,0.2)]">
-                  {timeStr} UTC
+                  {timeStr} {timezoneStr}
                 </span>
               </div>
             );
           })()}
-
-          {/* <form onSubmit={handleManualSetTime} className="flex flex-col gap-3"> */}
-          {/*   <div className="flex gap-2"> */}
-          {/*     <div className="flex flex-col gap-1 flex-1"> */}
-          {/*       <span className="text-[10px] text-slate-500">Date</span> */}
-          {/*       <input type="date" value={inputDate} onChange={(e) => setInputDate(e.target.value)} className="bg-slate-800 border border-slate-700 text-white text-xs px-2 py-1 rounded focus:outline-none" /> */}
-          {/*     </div> */}
-          {/*     <div className="flex flex-col gap-1 flex-1"> */}
-          {/*       <span className="text-[10px] text-slate-500">Time</span> */}
-          {/*       <input type="text" value={inputTime} onChange={(e) => setInputTime(e.target.value)} className="bg-slate-800 border border-slate-700 text-white text-xs px-2 py-1 rounded focus:outline-none" /> */}
-          {/*     </div> */}
-          {/*   </div> */}
-          {/*   <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs py-2 rounded shadow cursor-pointer transition-colors">Set Date & Time</button> */}
-          {/* </form> */}
         </div>
       </div>
 
@@ -115,6 +129,20 @@ export default function SolarSystemPage() {
               <option value="neptune">Neptune</option>
             </select>
           </div>
+
+          <form onSubmit={handleManualSetTime} className="flex flex-col gap-3 p-2 outline-1 rounded-lg outline-yellow-300">
+            <div className="flex gap-2">
+              <div className="flex flex-col gap-1 flex-1">
+                <span className="text-[10px] uppercase font-bold text-slate-400">Date</span>
+                <input type="date" value={inputDate} onChange={(e) => setInputDate(e.target.value)} className="bg-slate-800 border border-slate-700 text-white text-xs px-2 py-1 rounded focus:outline-none" />
+              </div>
+              <div className="flex flex-col gap-1 flex-1 min-w-0">
+                <span className="text-[10px] uppercase font-bold text-slate-400">Time</span>
+                <input type="text" value={inputTime} onChange={(e) => setInputTime(e.target.value)} className="bg-slate-800 border border-slate-700 text-white text-xs px-2 py-1 rounded focus:outline-none" />
+              </div>
+            </div>
+            <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs p-1 rounded shadow cursor-pointer transition-colors">Set Date & Time</button>
+          </form>
         </div>
       </div>
 
