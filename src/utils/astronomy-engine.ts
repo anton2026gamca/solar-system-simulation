@@ -49,17 +49,17 @@ export interface PlanetProfile {
 export const REALISTIC_PLANETS: Record<string, PlanetProfile> = {
   mercury: {
     name: 'Mercury', color: '#9e9e9e', radiusAu: 0.0000163,
-    rotation: { ra0: 281.01, raCy: -0.033, dec0: 61.45, decCy: -0.005, w0: 329.54, wDay: 6.1385025 },
+    rotation: { ra0: 270.0, raCy: 0.0, dec0: 89.97, decCy: 0.0, w0: 329.54, wDay: 6.1385025 },
     elements: { a0: 0.38709893, aCy: 0.00000066, e0: 0.20563069, eCy: 0.00002040, i0: 7.00487, iCy: -0.00594, L0: 252.25084, LCy: 149472.67411, longPeri0: 77.45645, longPeriCy: 0.15901, longNode0: 48.33167, longNodeCy: -0.12531 }
   },
   venus: {
     name: 'Venus', color: '#e3bb76', radiusAu: 0.0000404,
-    rotation: { ra0: 272.76, raCy: 0.0, dec0: 67.16, decCy: 0.0, w0: 160.20, wDay: -1.4813688 },
+    rotation: { ra0: 90.0, raCy: 0.0, dec0: -87.24, decCy: 0.0, w0: 160.20, wDay: -1.4813688 },
     elements: { a0: 0.72333199, aCy: 0.00000092, e0: 0.00677323, eCy: -0.00004776, i0: 3.39471, iCy: -0.00078, L0: 181.97973, LCy: 58517.81538, longPeri0: 131.53298, longPeriCy: 0.00213, longNode0: 76.68069, longNodeCy: -0.27769 }
   },
   earth: {
     name: 'Earth', color: '#2f82c4', radiusAu: 0.0000426,
-    rotation: { ra0: 0.0, raCy: -0.641, dec0: 90.0, decCy: -0.557, w0: 190.147, wDay: 360.9856235 },
+    rotation: { ra0: 90.0, raCy: 0.0, dec0: 66.56, decCy: -0.013, w0: 190.147, wDay: 360.9856235 },
     elements: { a0: 1.00000011, aCy: -0.00000005, e0: 0.01671022, eCy: -0.00003804, i0: 0.00005, iCy: -0.01300, L0: 100.46435, LCy: 36000.76983, longPeri0: 102.94719, longPeriCy: 0.32225, longNode0: -11.26064, longNodeCy: -0.41322 },
     moons: {
       moon: {
@@ -74,7 +74,7 @@ export const REALISTIC_PLANETS: Record<string, PlanetProfile> = {
   },
   mars: {
     name: 'Mars', color: '#e06138', radiusAu: 0.0000227,
-    rotation: { ra0: 317.68, raCy: -0.106, dec0: 52.89, decCy: -0.061, w0: 176.63, wDay: 350.8919822 },
+    rotation: { ra0: 347.14, raCy: 0.0, dec0: 64.78, decCy: 0.0, w0: 176.63, wDay: 350.8919822 },
     elements: { a0: 1.52366231, aCy: -0.00000497, e0: 0.09341233, eCy: 0.00011902, i0: 1.85061, iCy: -0.00724, L0: 355.45332, LCy: 19140.30268, longPeri0: 336.04084, longPeriCy: 0.44388, longNode0: 49.57854, longNodeCy: -0.29411 },
     moons: {
       phobos: { name: 'Phobos', color: '#8d6e63', radiusAu: 11.08 / 149597870.7, a: 9375 / 149597870.7, e: 0.015, i: 1.1, periodDays: 0.3187, longNode: 169.2, argPeri: 216.3, meanAnomaly0: 189.7 },
@@ -83,7 +83,7 @@ export const REALISTIC_PLANETS: Record<string, PlanetProfile> = {
   },
   jupiter: {
     name: 'Jupiter', color: '#d4a373', radiusAu: 0.0004673,
-    rotation: { ra0: 268.05, raCy: -0.009, dec0: 64.49, decCy: 0.003, w0: 284.95, wDay: 870.5360000 },
+    rotation: { ra0: 270.0, raCy: 0.0, dec0: 86.87, decCy: 0.0, w0: 284.95, wDay: 870.5360000 },
     elements: { a0: 5.20336301, aCy: 0.00060737, e0: 0.04839266, eCy: -0.00012880, i0: 1.30530, iCy: -0.00415, L0: 34.40438, LCy: 3034.74612, longPeri0: 14.75385, longPeriCy: 0.19152, longNode0: 100.55615, longNodeCy: 0.20426 },
     moons: {
       io: { name: 'Io', color: '#e6c229', radiusAu: 1821.49 / 149597870.7, a: 421800 / 149597870.7, e: 0.004, i: 0.0, periodDays: 1.762732, longNode: 0.0, argPeri: 49.1, meanAnomaly0: 330.9 },
@@ -101,7 +101,7 @@ export const REALISTIC_PLANETS: Record<string, PlanetProfile> = {
   },
   saturn: {
     name: 'Saturn', color: '#f4e2bb', radiusAu: 0.0003893,
-    rotation: { ra0: 40.58, raCy: -0.036, dec0: 83.54, decCy: -0.004, w0: 38.90, wDay: 810.7939024 },
+    rotation: { ra0: 40.58, raCy: 0.0, dec0: 63.27, decCy: 0.0, w0: 38.90, wDay: 810.7939024 },
     elements: { a0: 9.53707032, aCy: -0.00301530, e0: 0.05415060, eCy: -0.00036762, i0: 2.48446, iCy: 0.00193, L0: 49.94432, LCy: 1222.11379, longPeri0: 92.43194, longPeriCy: -0.41897, longNode0: 113.71504, longNodeCy: -0.28867 },
     moons: {
       mimas: { name: 'Mimas', color: '#b0b0b0', radiusAu: 198.20 / 149597870.7, a: 186000 / 149597870.7, e: 0.020, i: 1.6, periodDays: 0.942422, longNode: 66.2, argPeri: 160.4, meanAnomaly0: 275.3 },
@@ -115,7 +115,7 @@ export const REALISTIC_PLANETS: Record<string, PlanetProfile> = {
   },
   uranus: {
     name: 'Uranus', color: '#aee5e6', radiusAu: 0.0001693,
-    rotation: { ra0: 257.31, raCy: 0.0, dec0: -15.18, decCy: 0.0, w0: 203.81, wDay: -501.1600928 },
+    rotation: { ra0: 257.43, raCy: 0.0, dec0: -7.77, decCy: 0.0, w0: 203.81, wDay: -501.1600928 },
     elements: { a0: 19.19126393, aCy: 0.00152025, e0: 0.04716771, eCy: -0.00019150, i0: 0.76986, iCy: -0.00116, L0: 313.23218, LCy: 428.48202, longPeri0: 170.96424, longPeriCy: 0.40805, longNode0: 74.22988, longNodeCy: -0.09420 },
     moons: {
       ariel: { name: 'Ariel', color: '#cfebec', radiusAu: 578.9 / 149597870.7, a: 190929 / 149597870.7, e: 0.001, i: 0.0, periodDays: 2.520379, longNode: 0.0, argPeri: 9.6, meanAnomaly0: 193.5 },
@@ -126,7 +126,7 @@ export const REALISTIC_PLANETS: Record<string, PlanetProfile> = {
   },
   neptune: {
     name: 'Neptune', color: '#457b9d', radiusAu: 0.0001643,
-    rotation: { ra0: 299.33, raCy: 0.0, dec0: 42.95, decCy: 0.0, w0: 253.18, wDay: 536.3128492 },
+    rotation: { ra0: 299.35, raCy: 0.0, dec0: 61.68, decCy: 0.0, w0: 48.31, wDay: 536.3128662 },
     elements: { a0: 30.06896348, aCy: -0.00125196, e0: 0.00858587, eCy: 0.00002514, i0: 1.76917, iCy: -0.00001, L0: 304.88003, LCy: 218.45945, longPeri0: 44.97135, longPeriCy: -0.32241, longNode0: 131.72169, longNodeCy: -0.00256 },
     moons: { triton: { name: 'Triton', color: '#d2e4f0', radiusAu: 1352.60 / 149597870.7, a: 354800 / 149597870.7, e: 0.000, i: 157.3, periodDays: 5.876994, longNode: 178.1, argPeri: 0.0, meanAnomaly0: 63.0, retrograde: true } }
   }
@@ -216,19 +216,19 @@ export class AdvancedAstronomyEngine {
     const poleDirection = new THREE.Vector3(
       Math.cos(dec) * Math.cos(ra),
       Math.sin(dec),
-      Math.cos(dec) * Math.sin(ra)
+      -Math.cos(dec) * Math.sin(ra)
     ).normalize();
 
     const upVector = new THREE.Vector3(0, 1, 0);
     const quaternionAxis = new THREE.Quaternion().setFromUnitVectors(upVector, poleDirection);
     poleMatrix.makeRotationFromQuaternion(quaternionAxis);
 
-    const spinMatrix = new THREE.Matrix4().makeRotationY(W);
+    const MERIDIAN_CALIBRATION = Math.PI / 2;
+
+    const spinMatrix = new THREE.Matrix4().makeRotationY(W + MERIDIAN_CALIBRATION);
     const finalTransformMatrix = new THREE.Matrix4().multiplyMatrices(poleMatrix, spinMatrix);
 
-    const finalEuler = new THREE.Euler().setFromRotationMatrix(finalTransformMatrix, 'YXZ');
-
-    finalEuler.y += Math.PI;
+    const finalEuler = new THREE.Euler().setFromRotationMatrix(finalTransformMatrix, 'ZXY');
 
     return finalEuler;
   }

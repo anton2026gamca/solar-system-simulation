@@ -58,6 +58,7 @@ export default function SolarSystemPage() {
 
       if (!isNaN(c.getTime())) {
         setEngineAnchorDate(c);
+        setCurrentDate(c);
         setCommitToken((prev) => prev + 1);
         return;
       }

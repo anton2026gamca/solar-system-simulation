@@ -96,7 +96,7 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
       const pGroup = planetRefs.current[pKey];
       if (pGroup) {
         const pPos = resolvePlanetPosition(pKey, profile, activeFrameDate);
-        pGroup.position.set(pPos.x * AU_SCALE, pPos.z * AU_SCALE, pPos.y * AU_SCALE);
+        pGroup.position.set(pPos.x * AU_SCALE, pPos.z * AU_SCALE, -pPos.y * AU_SCALE);
       }
 
       if (profile.moons) {
@@ -104,7 +104,7 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
           const mGroup = moonGroupRefs.current[pKey + '_' + mKey];
           if (mGroup) {
             const mPos = resolveMoonPosition(pKey, mKey, mProfile, activeFrameDate);
-            mGroup.position.set(mPos.x * AU_SCALE, mPos.z * AU_SCALE, mPos.y * AU_SCALE);
+            mGroup.position.set(mPos.x * AU_SCALE, mPos.z * AU_SCALE, -mPos.y * AU_SCALE);
           }
         });
       }
@@ -131,11 +131,11 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
     const planetOrbits: any[] = []; const moonOrbits: Record<string, any[]> = {};
     Object.entries(REALISTIC_PLANETS).forEach(([pKey, profile]) => {
       const pPath = resolvePlanetPath(pKey, profile, initialDate, 180);
-      planetOrbits.push({ key: pKey, color: profile.color, vectors: pPath.map(p => new THREE.Vector3(p.x * AU_SCALE, p.z * AU_SCALE, p.y * AU_SCALE)) });
+      planetOrbits.push({ key: pKey, color: profile.color, vectors: pPath.map(p => new THREE.Vector3(p.x * AU_SCALE, p.z * AU_SCALE, -p.y * AU_SCALE)) });
       if (profile.moons) {
         moonOrbits[pKey] = Object.entries(profile.moons).map(([mKey, mProfile]) => {
           const mPath = resolveMoonPath(pKey, mKey, mProfile, initialDate, 64);
-          return { key: mKey, color: mProfile.color, vectors: mPath.map(p => new THREE.Vector3(p.x * AU_SCALE, p.z * AU_SCALE, p.y * AU_SCALE)) };
+          return { key: mKey, color: mProfile.color, vectors: mPath.map(p => new THREE.Vector3(p.x * AU_SCALE, p.z * AU_SCALE, -p.y * AU_SCALE)) };
         });
       }
     });
@@ -159,7 +159,7 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
         const pos = resolvePlanetPosition(pKey, profile, activeFrameDate);
         const targetX = pos.x * AU_SCALE;
         const targetY = pos.z * AU_SCALE;
-        const targetZ = pos.y * AU_SCALE;
+        const targetZ = -pos.y * AU_SCALE;
 
         pGroup.position.set(targetX, targetY, targetZ);
 
@@ -182,7 +182,7 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
             const mPos = resolveMoonPosition(pKey, mKey, mProfile, activeFrameDate);
             const mX = mPos.x * AU_SCALE;
             const mY = mPos.z * AU_SCALE;
-            const mZ = mPos.y * AU_SCALE;
+            const mZ = -mPos.y * AU_SCALE;
 
             mGroup.position.set(mX, mY, mZ);
 
@@ -211,7 +211,7 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
     if (Math.abs(timelineRef.current - lastMoonPathUpdateRef.current) > MOON_PATH_UPDATE_INTERVAL_MS) {
       lastMoonPathUpdateRef.current = timelineRef.current;
       const freshMoonPath = AdvancedAstronomyEngine.getEarthMoonPathPrecise(64, activeFrameDate);
-      setEarthMoonLivePath(freshMoonPath.map(p => new THREE.Vector3(p.x * AU_SCALE, p.z * AU_SCALE, p.y * AU_SCALE)));
+      setEarthMoonLivePath(freshMoonPath.map(p => new THREE.Vector3(p.x * AU_SCALE, p.z * AU_SCALE, -p.y * AU_SCALE)));
     }
 
     if (systemContainerRef.current) {
@@ -261,24 +261,36 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
               <group
                 key={pKey}
                 ref={(el) => { if (el) planetRefs.current[pKey] = el; }}
-                position={[startPos.x * AU_SCALE, startPos.z * AU_SCALE, startPos.y * AU_SCALE]}
+                position={[startPos.x * AU_SCALE, startPos.z * AU_SCALE, -startPos.y * AU_SCALE]}
               >
                 {pKey === 'earth' ? (
-                  <group ref={(el) => { if (el) planetMeshRefs.current[pKey] = el; }}>
-                    <Earth
-                      radius={planetRadius}
-                      time={timelineRef}
-                      sunPosition={sharedSunPos.current}
-                      moonPosition={sharedMoonPos.current}
-                      cameraPosition={sharedCamPos.current}
-                      earthDayTexture={earthDayTexture}
-                      earthNightTexture={earthNightTexture}
-                      earthLightsTexture={earthLightsTexture}
-                      earthCloudsTexture={earthCloudsTexture}
-                      earthSpecularTexture={earthSpecularTexture}
-                      earthBumbTexture={earthBumpTexture}
+                  <>
+                    <Line
+                      points={[[0, -planetRadius * 1.8, 0], [0, planetRadius * 1.8, 0]]}
+                      color="white"
+                      lineWidth={3}
                     />
-                  </group>
+                    <group ref={(el) => { if (el) planetMeshRefs.current[pKey] = el; }}>
+                      <Earth
+                        radius={planetRadius}
+                        time={timelineRef}
+                        sunPosition={sharedSunPos.current}
+                        moonPosition={sharedMoonPos.current}
+                        cameraPosition={sharedCamPos.current}
+                        earthDayTexture={earthDayTexture}
+                        earthNightTexture={earthNightTexture}
+                        earthLightsTexture={earthLightsTexture}
+                        earthCloudsTexture={earthCloudsTexture}
+                        earthSpecularTexture={earthSpecularTexture}
+                        earthBumbTexture={earthBumpTexture}
+                      />
+                      <Line
+                        points={[[0, -planetRadius * 1.8, 0], [0, planetRadius * 1.8, 0]]}
+                        color="orange"
+                        lineWidth={3}
+                      />
+                    </group>
+                  </>
                 ) : (
                   <mesh ref={(el) => { if (el) planetMeshRefs.current[pKey] = el; }}>
                     <sphereGeometry args={[planetRadius, 64, 64]} />
@@ -349,7 +361,7 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
                     <group
                       key={uniqueMoonKey}
                       ref={(el) => { if (el) moonGroupRefs.current[uniqueMoonKey] = el; }}
-                      position={[startMoonPos.x * AU_SCALE, startMoonPos.z * AU_SCALE, startMoonPos.y * AU_SCALE]}
+                      position={[startMoonPos.x * AU_SCALE, startMoonPos.z * AU_SCALE, -startMoonPos.y * AU_SCALE]}
                     >
                       <mesh>
                         <sphereGeometry args={[moonRadius, 16, 16]} />
