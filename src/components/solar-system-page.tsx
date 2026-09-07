@@ -27,6 +27,8 @@ export default function SolarSystemPage() {
 
   const [currentDate, setCurrentDate] = useState(new Date());
 
+  const [earthFocusShowLines, setEarthFocusShowLines] = useState(false);
+
   useEffect(() => {
     const now = new Date();
     setInputDate(now.toISOString().split('T')[0]);
@@ -131,7 +133,7 @@ export default function SolarSystemPage() {
             </select>
           </div>
 
-          <form onSubmit={handleManualSetTime} className="flex flex-col gap-3 p-2 outline-1 rounded-lg outline-yellow-300">
+          <form onSubmit={handleManualSetTime} className="flex flex-col gap-3 p-2 border border-slate-800 rounded-lg">
             <div className="flex gap-2">
               <div className="flex flex-col gap-1 flex-1">
                 <span className="text-[10px] uppercase font-bold text-slate-400">Date</span>
@@ -144,11 +146,37 @@ export default function SolarSystemPage() {
             </div>
             <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs p-1 rounded shadow cursor-pointer transition-colors">Set Date & Time</button>
           </form>
+
+          {focusTarget === 'earth' && (
+            <div className="flex flex-col gap-2 p-2.5 border border-cyan-500/30 bg-cyan-950/20 rounded-xl transition-all duration-300 animate-fadeIn">
+              <div className="flex items-center gap-1.5 border-b border-slate-800 pb-1.5 mb-1">
+                <span className="h-1.5 w-1.5 bg-cyan-400 rounded-full animate-pulse" />
+                <span className="text-[10px] uppercase font-black tracking-wider text-cyan-400">Earth-only settings</span>
+              </div>
+
+              <label className="flex items-center justify-between group cursor-pointer">
+                <span className="text-xs text-slate-300 group-hover:text-slate-100 transition-colors">
+                  Show orbit paths & other lines
+                </span>
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={earthFocusShowLines}
+                    onChange={(e) => setEarthFocusShowLines(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:content-[''] after:absolute after:top-0.5 after:inset-s-1 after:bg-slate-400 peer-checked:after:bg-cyan-400 after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cyan-950 border border-slate-700 peer-checked:border-cyan-500/50"></div>
+                </div>
+              </label>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="w-full h-full">
-        {!isSceneReady && <LoadingPage />}
+        {!isSceneReady && (
+          <LoadingPage />
+        )}
 
         <Canvas
           onCreated={({ scene }) => {
@@ -164,6 +192,7 @@ export default function SolarSystemPage() {
               commitToken={commitToken}
               timeScale={SPEED_STEPS[speedIndex]}
               focusTarget={focusTarget}
+              earthFocusShowLines={earthFocusShowLines}
               updateDate={(date) => setCurrentDate(date)}
               onReady={() => setIsSceneReady(true)}
             />

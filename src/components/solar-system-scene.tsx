@@ -40,11 +40,12 @@ interface SolarSystemSceneProps {
   commitToken: number;
   timeScale: number;
   focusTarget: string;
+  earthFocusShowLines: boolean;
   updateDate: (date: Date) => void;
   onReady: () => void;
 }
 
-export default function SolarSystemScene({ initialDate, commitToken, timeScale, focusTarget, updateDate, onReady }: SolarSystemSceneProps) {
+export default function SolarSystemScene({ initialDate, commitToken, timeScale, focusTarget, earthFocusShowLines, updateDate, onReady }: SolarSystemSceneProps) {
   const systemContainerRef = useRef<THREE.Group>(null);
   const planetRefs = useRef<Record<string, THREE.Group>>({});
   const planetMeshRefs = useRef<Record<string, THREE.Mesh | THREE.Group>>({});
@@ -248,7 +249,7 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
         <group ref={systemContainerRef}>
           <Sun />
 
-          {focusTarget !== 'earth' && systemPaths.planetOrbits.map((o) => (
+          {(focusTarget !== 'earth' || earthFocusShowLines) && systemPaths.planetOrbits.map((o) => (
             <Line key={o.key} points={o.vectors} color={o.color} lineWidth={2} transparent opacity={0.6} />
           ))}
 
@@ -265,11 +266,13 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
               >
                 {pKey === 'earth' ? (
                   <>
-                    <Line
-                      points={[[0, -planetRadius * 1.8, 0], [0, planetRadius * 1.8, 0]]}
-                      color="white"
-                      lineWidth={3}
-                    />
+                    {earthFocusShowLines && (
+                      <Line
+                        points={[[0, -planetRadius * 1.8, 0], [0, planetRadius * 1.8, 0]]}
+                        color="white"
+                        lineWidth={1}
+                      />
+                    )}
                     <group ref={(el) => { if (el) planetMeshRefs.current[pKey] = el; }}>
                       <Earth
                         radius={planetRadius}
@@ -284,22 +287,40 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
                         earthSpecularTexture={earthSpecularTexture}
                         earthBumbTexture={earthBumpTexture}
                       />
-                      <Line
-                        points={[[0, -planetRadius * 1.8, 0], [0, planetRadius * 1.8, 0]]}
-                        color="orange"
-                        lineWidth={3}
-                      />
+                      {earthFocusShowLines && (
+                        <Line
+                          points={[[0, -planetRadius * 1.8, 0], [0, planetRadius * 1.8, 0]]}
+                          color="orange"
+                          lineWidth={2}
+                        />
+                      )}
                     </group>
                   </>
                 ) : (
-                  <mesh ref={(el) => { if (el) planetMeshRefs.current[pKey] = el; }}>
-                    <sphereGeometry args={[planetRadius, 64, 64]} />
-                    <meshStandardMaterial
-                      color={profile.color}
-                      roughness={0.6}
-                      metalness={0.0}
-                    />
-                  </mesh>
+                  <>
+                    {(focusTarget !== 'earth' || earthFocusShowLines) && (
+                      <Line
+                        points={[[0, -planetRadius * 1.8, 0], [0, planetRadius * 1.8, 0]]}
+                        color="white"
+                        lineWidth={1}
+                      />
+                    )}
+                    <mesh ref={(el) => { if (el) planetMeshRefs.current[pKey] = el; }}>
+                      <sphereGeometry args={[planetRadius, 64, 64]} />
+                      <meshStandardMaterial
+                        color={profile.color}
+                        roughness={0.6}
+                        metalness={0.0}
+                      />
+                      {(focusTarget !== 'earth' || earthFocusShowLines) && (
+                        <Line
+                          points={[[0, -planetRadius * 1.8, 0], [0, planetRadius * 1.8, 0]]}
+                          color="orange"
+                          lineWidth={2}
+                        />
+                      )}
+                    </mesh>
+                  </>
                 )}
 
                 {pKey === 'saturn' && (
@@ -333,7 +354,7 @@ export default function SolarSystemScene({ initialDate, commitToken, timeScale, 
                 {systemPaths.moonOrbits[pKey]?.map((mOrbit) => {
                   const isIrregularOrbit = ['himalia', 'elara', 'lysithea', 'ananke', 'carme', 'pasiphae', 'sinope'].includes(mOrbit.key);
 
-                  if (isIrregularOrbit && focusTarget !== 'jupiter') {
+                  if (isIrregularOrbit && focusTarget !== 'jupiter' || focusTarget === 'earth' && !earthFocusShowLines) {
                     return null;
                   }
 
