@@ -2,6 +2,8 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
 import SolarSystemScene from './solar-system-scene';
+import EclipseBrowser from './ui/eclipse-browser';
+import { EclipseProfile } from '@/utils/eclipse-data';
 
 const SPEED_STEPS = [-100000000, -10000000, -200000, -50000, -20000, -5000, -1000, -100, -10, -5, -1, 0, 1, 5, 10, 100, 1000, 5000, 20000, 50000, 200000, 10000000, 100000000];
 
@@ -167,6 +169,16 @@ export default function SolarSystemPage() {
                   />
                   <div className="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:content-[''] after:absolute after:top-0.5 after:inset-s-1 after:bg-slate-400 peer-checked:after:bg-cyan-400 after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cyan-950 border border-slate-700 peer-checked:border-cyan-500/50"></div>
                 </div>
+              </label>
+
+              <label className="flex items-center justify-between group cursor-pointer">
+                <EclipseBrowser
+                  onEclipseClick={(eclipse: EclipseProfile) => {
+                    setEngineAnchorDate(eclipse.datetime);
+                    setCurrentDate(eclipse.datetime);
+                    setCommitToken((prev) => prev + 1);
+                  }}
+                />
               </label>
             </div>
           )}
