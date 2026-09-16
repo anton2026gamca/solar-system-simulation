@@ -12,8 +12,32 @@ export interface EclipseProfile {
   nasaCatalogNumber: number,
   datetime: Date,
   type: EclipseType,
-  duration: string,
+  /**
+   * The headline duration of the event in seconds, or null where the catalogue
+   * does not record one (a partial solar eclipse has no central duration).
+   *
+   * The two catalogues report this very differently: the solar tables give a
+   * central-phase string like "04m57s", while the lunar tables give three
+   * separate decimal-minute columns - penumbral, partial and total - and leave
+   * the ones that do not apply as "-". The meaningful figure is therefore the
+   * deepest phase each eclipse actually reaches, which is what is stored here.
+   */
+  durationSeconds: number | null,
 };
+
+/** Parses the solar catalogue's "04m57s" central-duration field. */
+function parseSolarDuration(raw: string): number | null {
+  const match = raw.trim().match(/^(\d+)m(\d+)s$/);
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+/** Parses a lunar decimal-minute column, which is "-" when not applicable. */
+function parseLunarMinutes(raw: string | undefined): number | null {
+  if (!raw || raw === '-') return null;
+  const minutes = Number(raw);
+  return Number.isFinite(minutes) ? Math.round(minutes * 60) : null;
+}
 
 // Source: https://eclipse.gsfc.nasa.gov/SEcat5/SE2001-2100.html
 // Table header:
@@ -515,13 +539,12 @@ export function parseData() {
     }
 
     const type = types[line.slice(50, 51)];
-    const duration = line.slice(94, 100);
 
     data.push({
-      nasaCatalogNumber: nasaCatalogNumber,
-      datetime: datetime,
-      type: type,
-      duration: duration,
+      nasaCatalogNumber,
+      datetime,
+      type,
+      durationSeconds: parseSolarDuration(line.slice(94, 100)),
     })
   });
 
@@ -552,13 +575,21 @@ export function parseData() {
         ? EclipseType.LunarTotal
         : EclipseType.LunarPenumbral;
 
-    const duration = parts[15] ?? "";
+    // Columns 13/14/15 are the penumbral, partial and total durations. Report
+    // the deepest phase this eclipse reaches, since the shallower ones are
+    // always present and would make every event look alike.
+    const durationSeconds =
+      type === EclipseType.LunarTotal
+        ? parseLunarMinutes(parts[15])
+        : type === EclipseType.LunarPartial
+          ? parseLunarMinutes(parts[14])
+          : parseLunarMinutes(parts[13]);
 
     data.push({
       nasaCatalogNumber,
       datetime,
       type,
-      duration,
+      durationSeconds,
     });
   });
 

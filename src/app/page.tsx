@@ -1,18 +1,9 @@
-"use client";
-
-import dynamic from "next/dynamic";
-
-const SolarSystemPage = dynamic(
-  () => import('@/components/solar-system-page'),
-  { ssr: false }
-);
+import SolarSystemPage from '@/components/solar-system-page';
 
 export default function Home() {
   return (
-    <main className="relative h-screen w-screen overflow-hidden bg-black">
-      <div className="h-full w-full cursor-grab active:cursor-grabbing">
-        <SolarSystemPage />
-      </div>
+    <main className="relative h-dvh w-full overflow-hidden bg-void">
+      <SolarSystemPage />
     </main>
   );
 }

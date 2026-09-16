@@ -132,26 +132,8 @@ export const REALISTIC_PLANETS: Record<string, PlanetProfile> = {
   }
 };
 
-const AU_KM = 149597870.7;
-export const SUN_RADIUS_AU = 696000 / AU_KM;
-export const EARTH_RADIUS_AU = 6371 / AU_KM;
-const SHADOW_ENLARGEMENT = 1.01;
-
 export class AdvancedAstronomyEngine {
   private static degToRad(deg: number): number { return (deg * Math.PI) / 180; }
-
-  private static vecLength(v: Vector3D): number {
-    return Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
-  }
-
-  private static vecDot(a: Vector3D, b: Vector3D): number {
-    return a.x * b.x + a.y * b.y + a.z * b.z;
-  }
-
-  private static angleBetween(a: Vector3D, b: Vector3D): number {
-    const cosAngle = this.vecDot(a, b) / (this.vecLength(a) * this.vecLength(b));
-    return Math.acos(Math.max(-1, Math.min(1, cosAngle)));
-  }
 
   private static normalizeRadians(angle: number): number {
     const twoPi = 2 * Math.PI;

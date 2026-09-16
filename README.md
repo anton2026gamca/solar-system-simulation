@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Solar System Simulation
 
-## Getting Started
+An interactive model of the solar system. Planet and moon positions come from
+real orbital elements rather than decorative circles, and the simulation can be
+driven from real time out to a century a second, forwards or backwards.
 
-First, run the development server:
+It also carries NASA's solar and lunar eclipse catalogues for 2001–2100. Picking
+an event moves the simulation to the moment of greatest eclipse, points the
+camera at Earth and slows the clock down enough to watch it happen.
+
+Earth is drawn with a custom shader: day and night sides, city lights on the
+dark half, cloud layer, an atmospheric rim, ocean specular from moonlight, and a
+surface that changes with the season.
+
+## Running it
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run build && npm start   # production
+npm run lint                 # eslint
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Controls
 
-## Learn More
+| Key | Action |
+| --- | --- |
+| `space` | play / pause |
+| `←` `→` | time rate down / up |
+| `r` | reverse direction |
+| `n` | jump to now |
+| `l` | toggle body labels |
+| `o` | toggle orbit paths |
 
-To learn more about Next.js, take a look at the following resources:
+Drag to orbit the camera, scroll to zoom.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+src/
+  app/                    layout, design tokens, vendored fonts
+  components/
+    solar-system-page.tsx top-level state and layout
+    solar-system-scene.tsx the render loop
+    scene-labels.tsx      screen-space labels
+    earth/                Earth shaders and material
+    sun/                  Sun glow and the system's light
+    ui/                   control rail, time bar, eclipse browser
+  utils/
+    astronomy-engine.ts   orbital elements and ephemerides
+    eclipse-data.ts       NASA catalogue parsing
+    simulation-clock.ts   the time source
+    seasonal-albedo.ts    monthly surface textures
+    time.ts               rate presets and formatting
+scripts/
+  optimize-textures.py    regenerates public/textures from the raw sources
+```
 
-## Deploy on Vercel
+## Data sources
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Eclipse catalogues: NASA GSFC, Fred Espenak
+- Surface imagery: NASA Visible Earth, Blue Marble Next Generation

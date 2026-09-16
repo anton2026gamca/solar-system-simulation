@@ -2,11 +2,18 @@ varying vec2 vUv;
 varying vec3 vWorldNormal;
 varying vec3 vWorldPosition;
 
+// Two adjacent monthly composites, crossfaded by uSeasonBlend.
 uniform sampler2D uDayTexture;
+uniform sampler2D uDayTextureNext;
+uniform float uSeasonBlend;
+
 uniform sampler2D uNightTexture;
 uniform sampler2D uLightsTexture;
 uniform sampler2D uSpecularTexture;
 uniform sampler2D uBumpTexture;
+// Size of one bump texel in UV space. Passed in rather than hard-coded so the
+// relief keeps the same strength if the texture resolution ever changes.
+uniform vec2 uBumpTexelSize;
 
 uniform vec3 uSunPosition;
 uniform vec3 uMoonPosition;
@@ -18,12 +25,11 @@ uniform float uMoonSpecularIntensity;
 float getHeight(vec2 uv) { return texture2D(uBumpTexture, uv).r; }
 
 void main() {
-  vec2 texelSize = vec2(1.0 / 21600.0, 1.0 / 10800.0);
   float bumpScale = 5.0;
 
   float hCurrent = getHeight(vUv);
-  float hU = getHeight(vUv + vec2(texelSize.x, 0.0));
-  float hV = getHeight(vUv + vec2(0.0, texelSize.y));
+  float hU = getHeight(vUv + vec2(uBumpTexelSize.x, 0.0));
+  float hV = getHeight(vUv + vec2(0.0, uBumpTexelSize.y));
 
   float dHdU = (hU - hCurrent) * bumpScale;
   float dHdV = (hV - hCurrent) * bumpScale;
@@ -38,7 +44,8 @@ void main() {
   vec3 perturbedNormal = baseNormal - (tangent * dHdU) - (bitangent * dHdV);
   vec3 normal = normalize(perturbedNormal);
 
-  vec3 dayColor = texture2D(uDayTexture, vUv).rgb;
+  vec3 dayColor = mix(texture2D(uDayTexture, vUv).rgb,
+                      texture2D(uDayTextureNext, vUv).rgb, uSeasonBlend);
   vec3 nightColor = texture2D(uNightTexture, vUv).rgb;
   float lightFactor = texture2D(uLightsTexture, vUv).r;
 

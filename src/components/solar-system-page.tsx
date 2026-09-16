@@ -1,215 +1,192 @@
-import React, { useState, useEffect, Suspense } from 'react';
+'use client';
+
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
-import SolarSystemScene from './solar-system-scene';
-import EclipseBrowser from './ui/eclipse-browser';
+
+import { SimulationClock } from '@/utils/simulation-clock';
+import { DEFAULT_RATE_INDEX, ECLIPSE_RATE_INDEX, RATE_STEPS, TimeDirection, rateMultiplier } from '@/utils/time';
 import { EclipseProfile } from '@/utils/eclipse-data';
+import { LABEL_TARGETS } from '@/utils/label-targets';
+import ControlRail, { LayerState } from './ui/control-rail';
+import TimeBar from './ui/time-bar';
+import LoadingScreen from './ui/loading-screen';
+import { LabelLayer, LabelNodes, LabelProjector } from './scene-labels';
 
-const SPEED_STEPS = [-100000000, -10000000, -200000, -50000, -20000, -5000, -1000, -100, -10, -5, -1, 0, 1, 5, 10, 100, 1000, 5000, 20000, 50000, 200000, 10000000, 100000000];
-
-function LoadingPage() {
-  return (
-    <div className="w-full h-full bg-slate-950 flex items-center justify-center">
-      <pre>Loading 3D Scene... Please wait</pre>
-    </div>
-  )
-}
+const SolarSystemScene = dynamic(() => import('./solar-system-scene'), { ssr: false });
 
 export default function SolarSystemPage() {
-  const [isMounted, setIsMounted] = useState(false);
-  const [isSceneReady, setIsSceneReady] = useState(false);
+  const clock = useMemo(() => new SimulationClock(), []);
+  const registry = useRef<Record<string, THREE.Object3D>>({});
+  const labelNodes = useRef<LabelNodes>({});
 
-  const [inputDate, setInputDate] = useState('');
-  const [inputTime, setInputTime] = useState('');
+  const [rateIndex, setRateIndex] = useState(DEFAULT_RATE_INDEX);
+  const [direction, setDirection] = useState<TimeDirection>(1);
+  const [paused, setPaused] = useState(false);
+  const [focusTarget, setFocusTarget] = useState('solar');
+  const [sceneReady, setSceneReady] = useState(false);
+  const [commitToken, setCommitToken] = useState(0);
+  const [anchorTime, setAnchorTime] = useState(() => clock.getTime());
+  const [selectedEclipseId, setSelectedEclipseId] = useState<number | null>(null);
 
-  const [engineAnchorDate, setEngineAnchorDate] = useState<Date>(new Date());
-  const [speedIndex, setSpeedIndex] = useState<number>(SPEED_STEPS.indexOf(1));
-  const [commitToken, setCommitToken] = useState<number>(0);
-  const [focusTarget, setFocusTarget] = useState<string>('solar');
+  const [layers, setLayers] = useState<LayerState>({
+    orbits: true,
+    labels: true,
+    axes: false,
+    seasons: true,
+  });
 
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const timeScale = rateMultiplier(rateIndex, direction, paused);
 
-  const [earthFocusShowLines, setEarthFocusShowLines] = useState(false);
+  const commitTime = useCallback(
+    (timestamp: number) => {
+      clock.setTime(timestamp);
+      setAnchorTime(timestamp);
+      setCommitToken((token) => token + 1);
+    },
+    [clock]
+  );
 
-  useEffect(() => {
-    const now = new Date();
-    setInputDate(now.toISOString().split('T')[0]);
-    setInputTime(now.toISOString().slice(11, 19));
-    setEngineAnchorDate(now);
-    setCurrentDate(now);
-    setCommitToken(1);
-    setIsMounted(true);
+  const handleRateChange = useCallback((index: number) => {
+    setRateIndex(Math.min(RATE_STEPS.length - 1, Math.max(0, index)));
+    setPaused(false);
   }, []);
 
-  const handleManualSetTime = (e: React.SubmitEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleJumpToNow = useCallback(() => {
+    commitTime(Date.now());
+    setSelectedEclipseId(null);
+  }, [commitTime]);
 
-    const normalizeTime = (timeStr: string): string | null => {
-      const parts = timeStr.trim().split(':');
-      if (parts.length < 2 || parts.length > 3) return null;
+  const handleSetTime = useCallback(
+    (timestamp: number) => {
+      commitTime(timestamp);
+      setSelectedEclipseId(null);
+    },
+    [commitTime]
+  );
 
-      const hh = parts[0].padStart(2, '0');
-      const mm = parts[1].padStart(2, '0');
-      const ss = (parts[2] || '0').padStart(2, '0');
+  const handleSelectEclipse = useCallback(
+    (eclipse: EclipseProfile) => {
+      commitTime(eclipse.datetime.getTime());
+      setSelectedEclipseId(eclipse.nasaCatalogNumber);
+      setFocusTarget('earth');
+      setRateIndex(ECLIPSE_RATE_INDEX);
+      setDirection(1);
+      setPaused(true);
+    },
+    [commitTime]
+  );
 
-      return `${hh}:${mm}:${ss}`;
+  const handleLayerChange = useCallback((key: keyof LayerState, value: boolean) => {
+    setLayers((current) => ({ ...current, [key]: value }));
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && /^(INPUT|SELECT|TEXTAREA)$/.test(target.tagName)) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+      switch (event.key) {
+        case ' ':
+          event.preventDefault();
+          setPaused((value) => !value);
+          break;
+        case 'ArrowRight':
+          event.preventDefault();
+          handleRateChange(rateIndex + 1);
+          break;
+        case 'ArrowLeft':
+          event.preventDefault();
+          handleRateChange(rateIndex - 1);
+          break;
+        case 'r':
+          setDirection((value) => (value === 1 ? -1 : 1));
+          break;
+        case 'n':
+          handleJumpToNow();
+          break;
+        case 'l':
+          handleLayerChange('labels', !layers.labels);
+          break;
+        case 'o':
+          handleLayerChange('orbits', !layers.orbits);
+          break;
+        default:
+          break;
+      }
     };
 
-    const cleanTime = normalizeTime(inputTime);
-
-    if (cleanTime) {
-      const c = new Date(`${inputDate}T${cleanTime}`);
-
-      if (!isNaN(c.getTime())) {
-        setEngineAnchorDate(c);
-        setCurrentDate(c);
-        setCommitToken((prev) => prev + 1);
-        return;
-      }
-    }
-
-    console.error("Invalid time format provided");
-  };
-
-  if (!isMounted) return <div className="w-full h-screen bg-slate-950" />;
-
-  const activeSpeedMultiplier = SPEED_STEPS[speedIndex];
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [rateIndex, layers.labels, layers.orbits, handleRateChange, handleJumpToNow, handleLayerChange]);
 
   return (
-    <div className="w-full h-screen relative bg-slate-950 text-slate-100 flex overflow-hidden pointer-events-none">
-      <div className="absolute inset-0 z-10 flex justify-center items-end">
-        <div className="pointer-events-auto cursor-default bg-slate-950/50 border border-slate-600 m-4 p-3 rounded-2xl shadow-2xl backdrop-blur-md flex gap-4">
-          {(() => {
-            const dateStr = currentDate.toLocaleDateString('en-US', {
-              month: 'long',
-              day: '2-digit',
-              year: 'numeric'
-            });
+    <div className="relative h-full w-full">
+      <Canvas
+        dpr={[1, 2]}
+        gl={{ antialias: true, powerPreference: 'high-performance' }}
+        camera={{ fov: 45, near: 0.0001, far: 20000, position: [0, 150, 250] }}
+        className="absolute inset-0 cursor-grab active:cursor-grabbing"
+      >
+        <Suspense fallback={null}>
+          <SolarSystemScene
+            clock={clock}
+            commitToken={commitToken}
+            timeScale={timeScale}
+            focusTarget={focusTarget}
+            showOrbits={layers.orbits}
+            showAxes={layers.axes}
+            seasonalAlbedo={layers.seasons}
+            registry={registry}
+            onReady={() => setSceneReady(true)}
+          />
+          <LabelProjector
+            targets={LABEL_TARGETS}
+            registry={registry}
+            nodes={labelNodes}
+            visible={layers.labels}
+            focusTarget={focusTarget}
+          />
+        </Suspense>
+      </Canvas>
 
-            const timeStr = currentDate.toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              hour12: false
-            });
+      <LabelLayer targets={LABEL_TARGETS} nodes={labelNodes} />
 
-            const parts = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).formatToParts(new Date());
-            const tzPart = parts.find(part => part.type === 'timeZoneName');
-            const timezoneStr = tzPart?.value ?? 'GMT';
+      <LoadingScreen done={sceneReady} />
 
-            return (
-              <div className="flex items-center gap-4 font-sans tracking-widest text-slate-200 selection:bg-cyan-500/30">
-                <span className="text-sm font-light uppercase opacity-80">{dateStr}</span>
-                <span className="h-1 w-1 bg-cyan-500 rounded-full" />
-                <span className="text-sm font-medium text-cyan-100 drop-shadow-[0_0_8px_rgba(34,211,238,0.2)]">
-                  {timeStr} {timezoneStr}
-                </span>
-              </div>
-            );
-          })()}
+      <div className="pointer-events-none absolute inset-0 z-20">
+        <header className="pointer-events-none absolute left-4 top-4 flex flex-col gap-3">
+          <ControlRail
+            focusTarget={focusTarget}
+            onFocusChange={setFocusTarget}
+            layers={layers}
+            onLayerChange={handleLayerChange}
+            anchorTime={anchorTime}
+            onSetTime={handleSetTime}
+            onSelectEclipse={handleSelectEclipse}
+            selectedEclipseId={selectedEclipseId}
+          />
+        </header>
+
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
+          <TimeBar
+            clock={clock}
+            rateIndex={rateIndex}
+            direction={direction}
+            paused={paused}
+            onRateChange={handleRateChange}
+            onDirectionChange={setDirection}
+            onTogglePause={() => setPaused((value) => !value)}
+            onJumpToNow={handleJumpToNow}
+          />
         </div>
-      </div>
 
-      <div className="absolute inset-0 z-10 flex justify-start items-start">
-        <div className="pointer-events-auto cursor-default bg-slate-950/50 border border-slate-600 m-4 p-3 rounded-2xl shadow-2xl backdrop-blur-md flex flex-col gap-4 w-80">
-          <div className="flex flex-col gap-2">
-            <div className="flex justify-between items-center">
-              <label className="text-[10px] uppercase font-bold text-slate-400">Time Scale</label>
-              <span className="font-mono text-xs text-emerald-400 font-semibold">{activeSpeedMultiplier.toLocaleString()}x</span>
-            </div>
-            <input type="range" min="0" max={SPEED_STEPS.length - 1} step="1" value={speedIndex} onChange={(e) => setSpeedIndex(Number(e.target.value))} className="w-full accent-emerald-500 cursor-pointer h-2 bg-slate-800 rounded-lg appearance-none" />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[10px] uppercase font-bold text-slate-400">Camera Intercept Target</span>
-            <select value={focusTarget} onChange={(e) => setFocusTarget(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-white focus:outline-none cursor-pointer">
-              <option value="solar">Solar System</option>
-              <option value="mercury">Mercury</option>
-              <option value="venus">Venus</option>
-              <option value="earth">Earth</option>
-              <option value="mars">Mars</option>
-              <option value="jupiter">Jupiter</option>
-              <option value="saturn">Saturn</option>
-              <option value="uranus">Uranus</option>
-              <option value="neptune">Neptune</option>
-            </select>
-          </div>
-
-          <form onSubmit={handleManualSetTime} className="flex flex-col gap-3 p-2 border border-slate-800 rounded-lg">
-            <div className="flex gap-2">
-              <div className="flex flex-col gap-1 flex-1">
-                <span className="text-[10px] uppercase font-bold text-slate-400">Date</span>
-                <input type="date" value={inputDate} onChange={(e) => setInputDate(e.target.value)} className="bg-slate-800 border border-slate-700 text-white text-xs px-2 py-1 rounded focus:outline-none" />
-              </div>
-              <div className="flex flex-col gap-1 flex-1 min-w-0">
-                <span className="text-[10px] uppercase font-bold text-slate-400">Time</span>
-                <input type="text" value={inputTime} onChange={(e) => setInputTime(e.target.value)} className="bg-slate-800 border border-slate-700 text-white text-xs px-2 py-1 rounded focus:outline-none" />
-              </div>
-            </div>
-            <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs p-1 rounded shadow cursor-pointer transition-colors">Set Date & Time</button>
-          </form>
-
-          {focusTarget === 'earth' && (
-            <div className="flex flex-col gap-2 p-2.5 border border-cyan-500/30 bg-cyan-950/20 rounded-xl transition-all duration-300 animate-fadeIn">
-              <div className="flex items-center gap-1.5 border-b border-slate-800 pb-1.5 mb-1">
-                <span className="h-1.5 w-1.5 bg-cyan-400 rounded-full animate-pulse" />
-                <span className="text-[10px] uppercase font-black tracking-wider text-cyan-400">Earth-only settings</span>
-              </div>
-
-              <label className="flex items-center justify-between group cursor-pointer">
-                <span className="text-xs text-slate-300 group-hover:text-slate-100 transition-colors">
-                  Show orbit paths & other lines
-                </span>
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={earthFocusShowLines}
-                    onChange={(e) => setEarthFocusShowLines(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:content-[''] after:absolute after:top-0.5 after:inset-s-1 after:bg-slate-400 peer-checked:after:bg-cyan-400 after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cyan-950 border border-slate-700 peer-checked:border-cyan-500/50"></div>
-                </div>
-              </label>
-
-              <label className="flex items-center justify-between group cursor-pointer">
-                <EclipseBrowser
-                  onEclipseClick={(eclipse: EclipseProfile) => {
-                    setEngineAnchorDate(eclipse.datetime);
-                    setCurrentDate(eclipse.datetime);
-                    setCommitToken((prev) => prev + 1);
-                  }}
-                />
-              </label>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="w-full h-full">
-        {!isSceneReady && (
-          <LoadingPage />
-        )}
-
-        <Canvas
-          onCreated={({ scene }) => {
-            const l = new THREE.PointLight(0xffffff, 4, 0);
-            scene.add(l);
-          }}
-          camera={{ fov: 45, far: 15000, near: 0.00001 }}
-        >
-          <ambientLight intensity={0.4} />
-          <Suspense fallback={null}>
-            <SolarSystemScene
-              initialDate={engineAnchorDate}
-              commitToken={commitToken}
-              timeScale={SPEED_STEPS[speedIndex]}
-              focusTarget={focusTarget}
-              earthFocusShowLines={earthFocusShowLines}
-              updateDate={(date) => setCurrentDate(date)}
-              onReady={() => setIsSceneReady(true)}
-            />
-          </Suspense>
-        </Canvas>
+        <p className="pointer-events-none absolute bottom-5 right-4 select-none text-[10px] leading-relaxed text-ink-faint/70">
+          <span className="tnum">space</span> play · <span className="tnum">← →</span> rate ·{' '}
+          <span className="tnum">r</span> reverse · <span className="tnum">n</span> now
+        </p>
       </div>
     </div>
   );

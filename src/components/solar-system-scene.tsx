@@ -1,409 +1,532 @@
 'use client';
 
-import { useMemo, useEffect, useRef, useState } from 'react';
-import { useFrame, useLoader } from '@react-three/fiber';
-import { CameraControls, Line, Html } from '@react-three/drei';
+import { RefObject, useEffect, useMemo, useRef, useState } from 'react';
+import { useFrame, useLoader, useThree } from '@react-three/fiber';
+import { CameraControls, Line } from '@react-three/drei';
 import * as THREE from 'three';
-import { AdvancedAstronomyEngine, REALISTIC_PLANETS } from '@/utils/astronomy-engine';
-import Earth from './earth/earth';
+import {
+  AdvancedAstronomyEngine,
+  MoonProfile,
+  PlanetProfile,
+  REALISTIC_PLANETS,
+  Vector3D,
+} from '@/utils/astronomy-engine';
+import { SimulationClock } from '@/utils/simulation-clock';
+import Earth, { EarthTextures } from './earth/earth';
 import Sun from './sun/sun';
 
-const AU_SCALE = 25;
+export const AU_SCALE = 25;
+
 const MOON_PATH_UPDATE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
-function resolvePlanetPosition(pKey: string, profile: any, date: Date) {
-  return pKey === 'earth'
+const IRREGULAR_MOONS = new Set([
+  'himalia', 'elara', 'lysithea', 'ananke', 'carme', 'pasiphae', 'sinope',
+]);
+
+const PLANET_ENTRIES = Object.entries(REALISTIC_PLANETS) as [string, PlanetProfile][];
+const MOON_ENTRIES: Record<string, [string, MoonProfile][]> = Object.fromEntries(
+  PLANET_ENTRIES.map(([key, profile]) => [key, Object.entries(profile.moons ?? {})])
+);
+
+function resolvePlanetPosition(key: string, profile: PlanetProfile, date: Date): Vector3D {
+  return key === 'earth'
     ? AdvancedAstronomyEngine.getEarthPositionPrecise(date)
     : AdvancedAstronomyEngine.getPlanetPosition(profile, date);
 }
 
-function resolvePlanetPath(pKey: string, profile: any, date: Date, segments: number) {
-  return pKey === 'earth'
+function resolvePlanetPath(
+  key: string,
+  profile: PlanetProfile,
+  date: Date,
+  segments: number
+): Vector3D[] {
+  return key === 'earth'
     ? AdvancedAstronomyEngine.getEarthPathPrecise(segments, date)
     : AdvancedAstronomyEngine.getOrbitPath(profile, date, segments);
 }
 
-function resolveMoonPosition(pKey: string, mKey: string, mProfile: any, date: Date) {
-  return (pKey === 'earth' && mKey === 'moon')
+function resolveMoonPosition(
+  planetKey: string,
+  moonKey: string,
+  profile: MoonProfile,
+  date: Date
+): Vector3D {
+  return planetKey === 'earth' && moonKey === 'moon'
     ? AdvancedAstronomyEngine.getEarthMoonPositionPrecise(date)
-    : AdvancedAstronomyEngine.getMoonLocalPosition(mProfile, date);
+    : AdvancedAstronomyEngine.getMoonLocalPosition(profile, date);
 }
 
-function resolveMoonPath(pKey: string, mKey: string, mProfile: any, date: Date, segments: number) {
-  return (pKey === 'earth' && mKey === 'moon')
+function resolveMoonPath(
+  planetKey: string,
+  moonKey: string,
+  profile: MoonProfile,
+  date: Date,
+  segments: number
+): Vector3D[] {
+  return planetKey === 'earth' && moonKey === 'moon'
     ? AdvancedAstronomyEngine.getEarthMoonPathPrecise(segments, date)
-    : AdvancedAstronomyEngine.getMoonLocalPath(mProfile, segments);
+    : AdvancedAstronomyEngine.getMoonLocalPath(profile, segments);
+}
+
+function toSceneVector(p: Vector3D): THREE.Vector3 {
+  return new THREE.Vector3(p.x * AU_SCALE, p.z * AU_SCALE, -p.y * AU_SCALE);
 }
 
 interface SolarSystemSceneProps {
-  initialDate: Date;
+  clock: SimulationClock;
   commitToken: number;
   timeScale: number;
   focusTarget: string;
-  earthFocusShowLines: boolean;
-  updateDate: (date: Date) => void;
+  showOrbits: boolean;
+  showAxes: boolean;
+  seasonalAlbedo: boolean;
+  registry: RefObject<Record<string, THREE.Object3D>>;
   onReady: () => void;
 }
 
-export default function SolarSystemScene({ initialDate, commitToken, timeScale, focusTarget, earthFocusShowLines, updateDate, onReady }: SolarSystemSceneProps) {
+export default function SolarSystemScene({
+  clock,
+  commitToken,
+  timeScale,
+  focusTarget,
+  showOrbits,
+  showAxes,
+  seasonalAlbedo,
+  registry,
+  onReady,
+}: SolarSystemSceneProps) {
   const systemContainerRef = useRef<THREE.Group>(null);
   const planetRefs = useRef<Record<string, THREE.Group>>({});
-  const planetMeshRefs = useRef<Record<string, THREE.Mesh | THREE.Group>>({});
+  const planetMeshRefs = useRef<Record<string, THREE.Object3D>>({});
   const moonGroupRefs = useRef<Record<string, THREE.Group>>({});
-  const controlsRef = useRef<any>(null);
+  const controlsRef = useRef<CameraControls>(null);
 
-  const timelineRef = useRef<number>(initialDate.getTime());
-
-  const milkyWayBackground = useLoader(THREE.TextureLoader, "/textures/milkyway/milkyway.jpg")
-  milkyWayBackground.mapping = THREE.EquirectangularReflectionMapping;
-  milkyWayBackground.colorSpace = THREE.SRGBColorSpace
+  const camera = useThree((state) => state.camera) as THREE.PerspectiveCamera;
+  const maxAnisotropy = useThree((state) => state.gl.capabilities.getMaxAnisotropy());
 
   const [
-    earthDayTexture,
-    earthNightTexture,
-    earthLightsTexture,
-    earthCloudsTexture,
-    earthSpecularTexture,
-    earthBumpTexture,
-  ] = useLoader(
-    THREE.TextureLoader,
-    [
-      "/textures/earth/earth_day.jpg",
-      "/textures/earth/earth_night.jpg",
-      "/textures/earth/earth_lights.jpg",
-      "/textures/earth/earth_clouds.jpg",
-      "/textures/earth/earth_specular.jpg",
-      "/textures/earth/earth_bump.jpg",
-    ]
+    milkyWay,
+    earthDay,
+    earthNight,
+    earthLights,
+    earthClouds,
+    earthSpecular,
+    earthBump,
+    moonMap,
+  ] = useLoader(THREE.TextureLoader, [
+    '/textures/milkyway/milkyway.webp',
+    '/textures/earth/day.webp',
+    '/textures/earth/night.webp',
+    '/textures/earth/lights.webp',
+    '/textures/earth/clouds.webp',
+    '/textures/earth/specular.webp',
+    '/textures/earth/bump.webp',
+    '/textures/moon/moon.webp',
+  ]);
+
+  useEffect(() => {
+    milkyWay.mapping = THREE.EquirectangularReflectionMapping;
+
+    for (const texture of [milkyWay]) {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.needsUpdate = true;
+    }
+    for (const texture of [earthLights, earthClouds, earthSpecular, earthBump]) {
+      texture.colorSpace = THREE.NoColorSpace;
+      texture.needsUpdate = true;
+    }
+    for (const texture of [earthDay, earthNight, moonMap, earthClouds]) {
+      texture.anisotropy = maxAnisotropy;
+    }
+  }, [milkyWay, earthDay, earthNight, earthLights, earthClouds, earthSpecular, earthBump, moonMap, maxAnisotropy]);
+
+  const earthTextures: EarthTextures = useMemo(
+    () => ({
+      day: earthDay,
+      night: earthNight,
+      lights: earthLights,
+      clouds: earthClouds,
+      specular: earthSpecular,
+      bump: earthBump,
+    }),
+    [earthDay, earthNight, earthLights, earthClouds, earthSpecular, earthBump]
   );
 
-  const sharedSunPos = useRef(new THREE.Vector3());
-  const sharedMoonPos = useRef(new THREE.Vector3());
-  const sharedCamPos = useRef(new THREE.Vector3());
+  const sunWorld = useRef(new THREE.Vector3());
+  const moonWorld = useRef(new THREE.Vector3());
+  const cameraWorld = useRef(new THREE.Vector3());
+  const focusShift = useRef(new THREE.Vector3());
 
   const [earthMoonLivePath, setEarthMoonLivePath] = useState<THREE.Vector3[] | null>(null);
-  const lastMoonPathUpdateRef = useRef<number>(initialDate.getTime());
-
-
-  useEffect(() => {
-    timelineRef.current = initialDate.getTime();
-    lastMoonPathUpdateRef.current = initialDate.getTime();
-    setEarthMoonLivePath(null);
-    const activeFrameDate = new Date(timelineRef.current);
-
-    updateDate(activeFrameDate);
-
-    Object.entries(REALISTIC_PLANETS).forEach(([pKey, profile]) => {
-      const pGroup = planetRefs.current[pKey];
-      if (pGroup) {
-        const pPos = resolvePlanetPosition(pKey, profile, activeFrameDate);
-        pGroup.position.set(pPos.x * AU_SCALE, pPos.z * AU_SCALE, -pPos.y * AU_SCALE);
-      }
-
-      if (profile.moons) {
-        Object.entries(profile.moons).forEach(([mKey, mProfile]) => {
-          const mGroup = moonGroupRefs.current[pKey + '_' + mKey];
-          if (mGroup) {
-            const mPos = resolveMoonPosition(pKey, mKey, mProfile, activeFrameDate);
-            mGroup.position.set(mPos.x * AU_SCALE, mPos.z * AU_SCALE, -mPos.y * AU_SCALE);
-          }
-        });
-      }
-    });
-  }, [commitToken, initialDate]);
+  const lastMoonPathUpdateRef = useRef(clock.getTime());
 
   useEffect(() => {
-    if (!controlsRef.current) return;
+    const date = new Date(clock.getTime());
+    lastMoonPathUpdateRef.current = Number.NEGATIVE_INFINITY;
+
+    for (const [planetKey, profile] of PLANET_ENTRIES) {
+      const group = planetRefs.current[planetKey];
+      if (group) {
+        const position = resolvePlanetPosition(planetKey, profile, date);
+        group.position.set(position.x * AU_SCALE, position.z * AU_SCALE, -position.y * AU_SCALE);
+      }
+
+      for (const [moonKey, moonProfile] of MOON_ENTRIES[planetKey]) {
+        const moonGroup = moonGroupRefs.current[`${planetKey}_${moonKey}`];
+        if (!moonGroup) continue;
+        const position = resolveMoonPosition(planetKey, moonKey, moonProfile, date);
+        moonGroup.position.set(position.x * AU_SCALE, position.z * AU_SCALE, -position.y * AU_SCALE);
+      }
+    }
+  }, [clock, commitToken]);
+
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
 
     if (focusTarget === 'solar') {
-      controlsRef.current.setLookAt(0, 150, 250, 0, 0, 0, true);
-    } else {
-      let offset = (
-        focusTarget === 'jupiter' ||
-        focusTarget === 'saturn' ||
-        focusTarget === 'uranus' ||
-        focusTarget === 'neptune'
-      ) ? 0.5 : 0.01
-      controlsRef.current.setLookAt(offset, offset * 0.4, offset, 0, 0, 0, true);
+      controls.setLookAt(0, 150, 250, 0, 0, 0, true);
+      return;
     }
-  }, [focusTarget]);
+
+    const profile = REALISTIC_PLANETS[focusTarget];
+    if (!profile) return;
+
+    const position = resolvePlanetPosition(focusTarget, profile, new Date(clock.getTime()));
+    const towardsSun = new THREE.Vector3(-position.x, -position.z, position.y).normalize();
+
+    const direction = towardsSun
+      .applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(55))
+      .setY(0.3)
+      .normalize();
+
+    const distance = profile.radiusAu * AU_SCALE * 9;
+
+    controls.setLookAt(
+      direction.x * distance,
+      direction.y * distance,
+      direction.z * distance,
+      0,
+      0,
+      0,
+      true
+    );
+  }, [focusTarget, clock, commitToken]);
 
   const systemPaths = useMemo(() => {
-    const planetOrbits: any[] = []; const moonOrbits: Record<string, any[]> = {};
-    Object.entries(REALISTIC_PLANETS).forEach(([pKey, profile]) => {
-      const pPath = resolvePlanetPath(pKey, profile, initialDate, 180);
-      planetOrbits.push({ key: pKey, color: profile.color, vectors: pPath.map(p => new THREE.Vector3(p.x * AU_SCALE, p.z * AU_SCALE, -p.y * AU_SCALE)) });
-      if (profile.moons) {
-        moonOrbits[pKey] = Object.entries(profile.moons).map(([mKey, mProfile]) => {
-          const mPath = resolveMoonPath(pKey, mKey, mProfile, initialDate, 64);
-          return { key: mKey, color: mProfile.color, vectors: mPath.map(p => new THREE.Vector3(p.x * AU_SCALE, p.z * AU_SCALE, -p.y * AU_SCALE)) };
-        });
-      }
-    });
+    const date = new Date(clock.getTime());
+    const planetOrbits: { key: string; color: string; vectors: THREE.Vector3[] }[] = [];
+    const moonOrbits: Record<
+      string,
+      { key: string; color: string; vectors: THREE.Vector3[]; radius: number }[]
+    > = {};
+
+    for (const [planetKey, profile] of PLANET_ENTRIES) {
+      planetOrbits.push({
+        key: planetKey,
+        color: profile.color,
+        vectors: resolvePlanetPath(planetKey, profile, date, 180).map(toSceneVector),
+      });
+
+      moonOrbits[planetKey] = MOON_ENTRIES[planetKey].map(([moonKey, moonProfile]) => ({
+        key: moonKey,
+        color: moonProfile.color,
+        vectors: resolveMoonPath(planetKey, moonKey, moonProfile, date, 64).map(toSceneVector),
+        radius: moonProfile.a * AU_SCALE,
+      }));
+    }
+
     return { planetOrbits, moonOrbits };
-  }, [commitToken, initialDate]);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clock, commitToken]);
+
+  const timeRef = useRef(clock.getTime());
+
+  const moonOrbitRefs = useRef<Record<string, { object: THREE.Object3D; radius: number }>>({});
+
+  const initialPlacement = useMemo(() => {
+    const date = new Date(clock.getTime());
+    const planets: Record<string, Vector3D> = {};
+    const moons: Record<string, Vector3D> = {};
+
+    for (const [planetKey, profile] of PLANET_ENTRIES) {
+      planets[planetKey] = resolvePlanetPosition(planetKey, profile, date);
+      for (const [moonKey, moonProfile] of MOON_ENTRIES[planetKey]) {
+        moons[`${planetKey}_${moonKey}`] = resolveMoonPosition(
+          planetKey,
+          moonKey,
+          moonProfile,
+          date
+        );
+      }
+    }
+
+    return { planets, moons };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clock, commitToken]);
+
+  const lastNearRef = useRef(0);
 
   useFrame((state, delta) => {
     if (timeScale !== 0) {
-      timelineRef.current += delta * 1000 * timeScale;
+      clock.advance(delta * 1000 * timeScale);
     }
-    const activeFrameDate = new Date(timelineRef.current);
 
-    updateDate(activeFrameDate);
+    timeRef.current = clock.getTime();
+    const date = new Date(timeRef.current);
+    const container = systemContainerRef.current;
 
-    let focusShiftVector = new THREE.Vector3(0, 0, 0);
-    let currentMoonWorldPos = new THREE.Vector3();
+    focusShift.current.set(0, 0, 0);
 
-    Object.entries(REALISTIC_PLANETS).forEach(([pKey, profile]) => {
-      const pGroup = planetRefs.current[pKey];
-      if (pGroup) {
-        const pos = resolvePlanetPosition(pKey, profile, activeFrameDate);
-        const targetX = pos.x * AU_SCALE;
-        const targetY = pos.z * AU_SCALE;
-        const targetZ = -pos.y * AU_SCALE;
+    for (const [planetKey, profile] of PLANET_ENTRIES) {
+      const group = planetRefs.current[planetKey];
+      if (group) {
+        const position = resolvePlanetPosition(planetKey, profile, date);
+        const x = position.x * AU_SCALE;
+        const y = position.z * AU_SCALE;
+        const z = -position.y * AU_SCALE;
+        group.position.set(x, y, z);
 
-        pGroup.position.set(targetX, targetY, targetZ);
-
-        if (pKey === focusTarget) {
-          focusShiftVector.set(targetX, targetY, targetZ);
-        }
+        if (planetKey === focusTarget) focusShift.current.set(x, y, z);
       }
 
-      const pMesh = planetMeshRefs.current[pKey];
-      if (pMesh) {
-        const computedEuler = AdvancedAstronomyEngine.getPlanetEulerRotation(profile, activeFrameDate);
-        pMesh.rotation.copy(computedEuler);
+      const mesh = planetMeshRefs.current[planetKey];
+      if (mesh) {
+        mesh.rotation.copy(AdvancedAstronomyEngine.getPlanetEulerRotation(profile, date));
       }
 
-      if (profile.moons) {
-        Object.entries(profile.moons).forEach(([mKey, mProfile]) => {
-          const uniqueMoonKey = pKey + '_' + mKey;
-          const mGroup = moonGroupRefs.current[uniqueMoonKey];
-          if (mGroup) {
-            const mPos = resolveMoonPosition(pKey, mKey, mProfile, activeFrameDate);
-            const mX = mPos.x * AU_SCALE;
-            const mY = mPos.z * AU_SCALE;
-            const mZ = -mPos.y * AU_SCALE;
-
-            mGroup.position.set(mX, mY, mZ);
-
-            if (pKey === 'earth' && mKey === 'moon') {
-              currentMoonWorldPos.set(mX, mY, mZ);
-            }
-          }
-        });
-      }
-    });
-
-    const earthGroup = planetRefs.current['earth'];
-    if (earthGroup) {
-      sharedSunPos.current.copy(earthGroup.position).multiplyScalar(-1);
-
-      sharedMoonPos.current.copy(currentMoonWorldPos);
-
-      if (systemContainerRef.current) {
-        sharedCamPos.current
-          .copy(state.camera.position)
-          .sub(systemContainerRef.current.position)
-          .sub(earthGroup.position);
+      for (const [moonKey, moonProfile] of MOON_ENTRIES[planetKey]) {
+        const moonGroup = moonGroupRefs.current[`${planetKey}_${moonKey}`];
+        if (!moonGroup) continue;
+        const position = resolveMoonPosition(planetKey, moonKey, moonProfile, date);
+        moonGroup.position.set(
+          position.x * AU_SCALE,
+          position.z * AU_SCALE,
+          -position.y * AU_SCALE
+        );
       }
     }
 
-    if (Math.abs(timelineRef.current - lastMoonPathUpdateRef.current) > MOON_PATH_UPDATE_INTERVAL_MS) {
-      lastMoonPathUpdateRef.current = timelineRef.current;
-      const freshMoonPath = AdvancedAstronomyEngine.getEarthMoonPathPrecise(64, activeFrameDate);
-      setEarthMoonLivePath(freshMoonPath.map(p => new THREE.Vector3(p.x * AU_SCALE, p.z * AU_SCALE, -p.y * AU_SCALE)));
-    }
-
-    if (systemContainerRef.current) {
+    if (container) {
       if (focusTarget === 'solar') {
-        systemContainerRef.current.position.set(0, 0, 0);
-        if (controlsRef.current) controlsRef.current.setTarget(0, 0, 0, false);
+        container.position.set(0, 0, 0);
       } else {
-        systemContainerRef.current.position.set(-focusShiftVector.x, -focusShiftVector.y, -focusShiftVector.z);
-        if (controlsRef.current) controlsRef.current.setTarget(0, 0, 0, false);
+        container.position.copy(focusShift.current).multiplyScalar(-1);
       }
+      controlsRef.current?.setTarget(0, 0, 0, false);
+
+      sunWorld.current.copy(container.position);
+
+      const earthGroup = planetRefs.current.earth;
+      const moonGroup = moonGroupRefs.current.earth_moon;
+      if (earthGroup && moonGroup) {
+        moonWorld.current
+          .copy(container.position)
+          .add(earthGroup.position)
+          .add(moonGroup.position);
+      }
+    }
+
+    cameraWorld.current.copy(state.camera.position);
+
+    const cameraDistance = state.camera.position.length();
+    for (const entry of Object.values(moonOrbitRefs.current)) {
+      entry.object.visible = cameraDistance > entry.radius * 0.55;
+    }
+
+    if (Math.abs(clock.getTime() - lastMoonPathUpdateRef.current) > MOON_PATH_UPDATE_INTERVAL_MS) {
+      lastMoonPathUpdateRef.current = clock.getTime();
+      setEarthMoonLivePath(
+        AdvancedAstronomyEngine.getEarthMoonPathPrecise(64, date).map(toSceneVector)
+      );
+    }
+
+    const distance = state.camera.position.length();
+    const near = THREE.MathUtils.clamp(distance * 0.01, 1e-5, 5);
+    if (Math.abs(near - lastNearRef.current) > lastNearRef.current * 0.25) {
+      lastNearRef.current = near;
+      camera.near = near;
+      camera.updateProjectionMatrix();
     }
   });
 
-  const renderedFrames = useRef(0)
-  const isTriggered = useRef(false)
+  const readyFrames = useRef(0);
+  const readyFired = useRef(false);
 
   useFrame(() => {
-    if (!isTriggered.current) {
-      renderedFrames.current += 1
-
-      if (renderedFrames.current >= 2) {
-        isTriggered.current = true
-        onReady()
-      }
+    if (readyFired.current) return;
+    readyFrames.current += 1;
+    if (readyFrames.current >= 2) {
+      readyFired.current = true;
+      onReady();
     }
-  })
+  });
 
   return (
     <>
-      <primitive attach="background" object={milkyWayBackground} />
-      <group>
-        <CameraControls ref={controlsRef} minDistance={0.0015} maxDistance={6000} />
+      <primitive attach="background" object={milkyWay} />
+      <ambientLight intensity={0.05} />
 
-        <group ref={systemContainerRef}>
-          <Sun />
+      <CameraControls ref={controlsRef} minDistance={0.003} maxDistance={6000} />
 
-          {(focusTarget !== 'earth' || earthFocusShowLines) && systemPaths.planetOrbits.map((o) => (
-            <Line key={o.key} points={o.vectors} color={o.color} lineWidth={2} transparent opacity={0.6} />
+      <group ref={systemContainerRef}>
+        <Sun auScale={AU_SCALE} />
+
+        {showOrbits &&
+          focusTarget === 'solar' &&
+          systemPaths.planetOrbits.map((orbit) => (
+            <Line
+              key={orbit.key}
+              points={orbit.vectors}
+              color={orbit.color}
+              lineWidth={1.0}
+              transparent
+              opacity={1.0}
+            />
           ))}
 
-          {Object.entries(REALISTIC_PLANETS).map(([pKey, profile]) => {
-            const startPos = resolvePlanetPosition(pKey, profile, initialDate);
+        {PLANET_ENTRIES.map(([planetKey, profile]) => {
+          const start = initialPlacement.planets[planetKey];
+          const radius = profile.radiusAu * AU_SCALE;
+          const isEarth = planetKey === 'earth';
 
-            const planetRadius = profile.radiusAu * AU_SCALE;
+          return (
+            <group
+              key={planetKey}
+              ref={(el) => {
+                if (el) {
+                  planetRefs.current[planetKey] = el;
+                  registry.current[planetKey] = el;
+                }
+              }}
+              position={[start.x * AU_SCALE, start.z * AU_SCALE, -start.y * AU_SCALE]}
+            >
+              {showAxes && (
+                <Line
+                  points={[
+                    [0, -radius * 1.8, 0],
+                    [0, radius * 1.8, 0],
+                  ]}
+                  color="#4a5568"
+                  lineWidth={1}
+                  transparent
+                  opacity={1.0}
+                />
+              )}
 
-            return (
               <group
-                key={pKey}
-                ref={(el) => { if (el) planetRefs.current[pKey] = el; }}
-                position={[startPos.x * AU_SCALE, startPos.z * AU_SCALE, -startPos.y * AU_SCALE]}
+                ref={(el) => {
+                  if (el) planetMeshRefs.current[planetKey] = el;
+                }}
               >
-                {pKey === 'earth' ? (
-                  <>
-                    {earthFocusShowLines && (
-                      <Line
-                        points={[[0, -planetRadius * 1.8, 0], [0, planetRadius * 1.8, 0]]}
-                        color="white"
-                        lineWidth={1}
-                      />
-                    )}
-                    <group ref={(el) => { if (el) planetMeshRefs.current[pKey] = el; }}>
-                      <Earth
-                        radius={planetRadius}
-                        time={timelineRef}
-                        sunPosition={sharedSunPos.current}
-                        moonPosition={sharedMoonPos.current}
-                        cameraPosition={sharedCamPos.current}
-                        earthDayTexture={earthDayTexture}
-                        earthNightTexture={earthNightTexture}
-                        earthLightsTexture={earthLightsTexture}
-                        earthCloudsTexture={earthCloudsTexture}
-                        earthSpecularTexture={earthSpecularTexture}
-                        earthBumbTexture={earthBumpTexture}
-                      />
-                      {earthFocusShowLines && (
-                        <Line
-                          points={[[0, -planetRadius * 1.8, 0], [0, planetRadius * 1.8, 0]]}
-                          color="orange"
-                          lineWidth={2}
-                        />
-                      )}
-                    </group>
-                  </>
+                {isEarth ? (
+                  <Earth
+                    radius={radius}
+                    time={timeRef}
+                    sunPosition={sunWorld.current}
+                    moonPosition={moonWorld.current}
+                    cameraPosition={cameraWorld.current}
+                    textures={earthTextures}
+                    seasonalAlbedo={seasonalAlbedo}
+                  />
                 ) : (
-                  <>
-                    {(focusTarget !== 'earth' || earthFocusShowLines) && (
-                      <Line
-                        points={[[0, -planetRadius * 1.8, 0], [0, planetRadius * 1.8, 0]]}
-                        color="white"
-                        lineWidth={1}
-                      />
-                    )}
-                    <mesh ref={(el) => { if (el) planetMeshRefs.current[pKey] = el; }}>
-                      <sphereGeometry args={[planetRadius, 64, 64]} />
-                      <meshStandardMaterial
-                        color={profile.color}
-                        roughness={0.6}
-                        metalness={0.0}
-                      />
-                      {(focusTarget !== 'earth' || earthFocusShowLines) && (
-                        <Line
-                          points={[[0, -planetRadius * 1.8, 0], [0, planetRadius * 1.8, 0]]}
-                          color="orange"
-                          lineWidth={2}
-                        />
-                      )}
-                    </mesh>
-                  </>
+                  <mesh>
+                    <sphereGeometry args={[radius, 48, 48]} />
+                    <meshStandardMaterial color={profile.color} roughness={0.85} metalness={0} />
+                  </mesh>
                 )}
 
-                {pKey === 'saturn' && (
-                  <mesh
-                    rotation={[Math.PI / 2.5, 0, Math.PI / 6]}
-                  >
-                    <ringGeometry args={[0.00045 * AU_SCALE, 0.00095 * AU_SCALE, 64]} />
+                {planetKey === 'saturn' && (
+                  <mesh rotation={[Math.PI / 2, 0, 0]}>
+                    <ringGeometry args={[radius * 1.24, radius * 2.27, 96]} />
                     <meshStandardMaterial
                       color="#e2bf7d"
-                      roughness={0.6}
-                      metalness={0.0}
+                      roughness={0.8}
+                      metalness={0}
                       side={THREE.DoubleSide}
                       transparent
-                      opacity={0.8}
+                      opacity={0.75}
                     />
                   </mesh>
                 )}
 
-                {focusTarget !== pKey && (
-                  <Html
-                    position={new THREE.Vector3(0, 0, 0)}
-                    className="pointer-events-none select-none whitespace-nowrap flex flex-col items-center transform -translate-x-1/2 -translate-y-full"
-                  >
-                    <span className="text-white text-xs font-mono font-medium uppercase tracking-wider mb-1 block">
-                      {profile.name}
-                    </span>
-                    <div className="w-px h-10 mb-1 bg-white/50" />
-                  </Html>
+                {showAxes && (
+                  <Line
+                    points={[
+                      [0, -radius * 1.8, 0],
+                      [0, radius * 1.8, 0],
+                    ]}
+                    color="#ffffff"
+                    lineWidth={1}
+                    transparent
+                    opacity={1.0}
+                  />
                 )}
-
-                {systemPaths.moonOrbits[pKey]?.map((mOrbit) => {
-                  const isIrregularOrbit = ['himalia', 'elara', 'lysithea', 'ananke', 'carme', 'pasiphae', 'sinope'].includes(mOrbit.key);
-
-                  if (isIrregularOrbit && focusTarget !== 'jupiter' || focusTarget === 'earth' && !earthFocusShowLines) {
-                    return null;
-                  }
-
-                  const isEarthMoon = pKey === 'earth' && mOrbit.key === 'moon';
-                  const points = (isEarthMoon && earthMoonLivePath) ? earthMoonLivePath : mOrbit.vectors;
-
-                  return (
-                    <Line key={mOrbit.key} points={points} color={mOrbit.color} lineWidth={1} opacity={0.6} transparent />
-                  );
-                })}
-
-                {profile.moons && Object.entries(profile.moons).map(([mKey, mProfile]) => {
-                  const moonRadius = mProfile.radiusAu * AU_SCALE;
-                  const uniqueMoonKey = pKey + '_' + mKey;
-                  const startMoonPos = resolveMoonPosition(pKey, mKey, mProfile, initialDate);
-
-                  const isIrregularMoon = ['himalia', 'elara', 'lysithea', 'ananke', 'carme', 'pasiphae', 'sinope'].includes(mKey);
-                  if (isIrregularMoon && focusTarget !== 'jupiter') {
-                    return null;
-                  }
-
-                  const shouldShowMoonLabel = focusTarget === pKey;
-
-                  return (
-                    <group
-                      key={uniqueMoonKey}
-                      ref={(el) => { if (el) moonGroupRefs.current[uniqueMoonKey] = el; }}
-                      position={[startMoonPos.x * AU_SCALE, startMoonPos.z * AU_SCALE, -startMoonPos.y * AU_SCALE]}
-                    >
-                      <mesh>
-                        <sphereGeometry args={[moonRadius, 16, 16]} />
-                        <meshStandardMaterial color={mProfile.color} roughness={0.8} />
-                      </mesh>
-
-                      {shouldShowMoonLabel && (
-                        <Html className="pointer-events-none select-none whitespace-nowrap flex flex-col items-center transform -translate-x-1/2 -translate-y-full">
-                          <span className="text-white text-[9px] font-mono opacity-75 lowercase mb-1 block">
-                            {mProfile.name}
-                          </span>
-                          <div className="w-px h-5 mb-1 bg-white/40" />
-                        </Html>
-                      )}
-                    </group>
-                  );
-                })}
               </group>
-            );
-          })}
-        </group>
+
+              {showOrbits &&
+                focusTarget === planetKey &&
+                systemPaths.moonOrbits[planetKey]?.map((orbit) => {
+                  if (IRREGULAR_MOONS.has(orbit.key) && focusTarget !== 'jupiter') return null;
+
+                  const isEarthMoon = isEarth && orbit.key === 'moon';
+                  const points = isEarthMoon && earthMoonLivePath ? earthMoonLivePath : orbit.vectors;
+
+                  return (
+                    <Line
+                      key={orbit.key}
+                      ref={(el) => {
+                        if (el) {
+                          moonOrbitRefs.current[`${planetKey}_${orbit.key}`] = {
+                            object: el,
+                            radius: orbit.radius,
+                          };
+                        }
+                      }}
+                      points={points}
+                      color={orbit.color}
+                      lineWidth={1}
+                      transparent
+                      opacity={1.0}
+                    />
+                  );
+                })}
+
+              {MOON_ENTRIES[planetKey].map(([moonKey, moonProfile]) => {
+                if (IRREGULAR_MOONS.has(moonKey) && focusTarget !== 'jupiter') return null;
+
+                const moonRadius = moonProfile.radiusAu * AU_SCALE;
+                const uniqueKey = `${planetKey}_${moonKey}`;
+                const start = initialPlacement.moons[uniqueKey];
+                const isLuna = isEarth && moonKey === 'moon';
+
+                return (
+                  <group
+                    key={uniqueKey}
+                    ref={(el) => {
+                      if (el) {
+                        moonGroupRefs.current[uniqueKey] = el;
+                        registry.current[uniqueKey] = el;
+                      }
+                    }}
+                    position={[start.x * AU_SCALE, start.z * AU_SCALE, -start.y * AU_SCALE]}
+                  >
+                    <mesh>
+                      <sphereGeometry args={[moonRadius, isLuna ? 48 : 16, isLuna ? 48 : 16]} />
+                      <meshStandardMaterial
+                        map={isLuna ? moonMap : undefined}
+                        color={isLuna ? '#ffffff' : moonProfile.color}
+                        roughness={1}
+                        metalness={0}
+                      />
+                    </mesh>
+                  </group>
+                );
+              })}
+            </group>
+          );
+        })}
       </group>
     </>
   );

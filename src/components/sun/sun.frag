@@ -2,7 +2,6 @@ varying vec3 vWorldNormal;
 varying vec3 vWorldPosition;
 
 uniform vec3 uCameraPosition;
-uniform vec3 uGlowColor;
 
 void main() {
   vec3 normal = normalize(-vWorldNormal);
@@ -14,7 +13,7 @@ void main() {
   float sunDisk = pow(dotVN, 32.0);
 
   float coronaThickness = 0.0025;
-  float vacuumFade = coronaThickness / (1.0 - dotVN + 0.005);
+  float vacuumFade = coronaThickness / (1.0 - dotVN);
   vacuumFade = clamp(vacuumFade, 0.0, 1.0);
 
   float finalAlpha = sunDisk + pow(vacuumFade, 2.5);
