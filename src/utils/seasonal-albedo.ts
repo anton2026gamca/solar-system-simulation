@@ -70,8 +70,10 @@ export class SeasonalAlbedo {
     if (this.disposed || this.pending.has(month)) return;
     this.pending.add(month);
 
+    const basePath = process.env.__NEXT_ROUTER_BASEPATH || '';
+
     this.loader.load(
-      `/textures/earth/months/${MONTH_FILES[month]}.webp`,
+      `${basePath}/textures/earth/months/${MONTH_FILES[month]}.webp`,
       (texture) => {
         this.pending.delete(month);
 

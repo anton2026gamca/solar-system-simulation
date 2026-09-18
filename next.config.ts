@@ -1,6 +1,10 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  output: 'export',
+  basePath: '/solar-system-simulation',
+  trailingSlash: true,
+
   reactStrictMode: true,
 
   turbopack: {

@@ -104,6 +104,8 @@ export default function SolarSystemScene({
   const camera = useThree((state) => state.camera) as THREE.PerspectiveCamera;
   const maxAnisotropy = useThree((state) => state.gl.capabilities.getMaxAnisotropy());
 
+  const basePath = process.env.__NEXT_ROUTER_BASEPATH || '';
+
   const [
     milkyWay,
     earthDay,
@@ -114,14 +116,14 @@ export default function SolarSystemScene({
     earthBump,
     moonMap,
   ] = useLoader(THREE.TextureLoader, [
-    '/textures/milkyway/milkyway.webp',
-    '/textures/earth/day.webp',
-    '/textures/earth/night.webp',
-    '/textures/earth/lights.webp',
-    '/textures/earth/clouds.webp',
-    '/textures/earth/specular.webp',
-    '/textures/earth/bump.webp',
-    '/textures/moon/moon.webp',
+    `${basePath}/textures/milkyway/milkyway.webp`,
+    `${basePath}/textures/earth/day.webp`,
+    `${basePath}/textures/earth/night.webp`,
+    `${basePath}/textures/earth/lights.webp`,
+    `${basePath}/textures/earth/clouds.webp`,
+    `${basePath}/textures/earth/specular.webp`,
+    `${basePath}/textures/earth/bump.webp`,
+    `${basePath}/textures/moon/moon.webp`,
   ]);
 
   useEffect(() => {
