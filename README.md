@@ -12,6 +12,8 @@ Earth is drawn with a custom shader: day and night sides, city lights on the
 dark half, cloud layer, an atmospheric rim, ocean specular from moonlight, and a
 surface that changes with the season.
 
+<img width="1874" height="1036" alt="image" src="https://github.com/user-attachments/assets/a85c6d99-3b60-4065-a406-6abd920cc11c" />
+
 ## Running it
 
 ```bash
