@@ -1,7 +1,12 @@
 self.__BUILD_MANIFEST = {
   "__rewrites": {
     "afterFiles": [],
-    "beforeFiles": [],
+    "beforeFiles": [
+      {
+        "source": "/solar-system-simulation//_next/:path+",
+        "destination": "/solar-system-simulation/_next/:path+"
+      }
+    ],
     "fallback": []
   },
   "sortedPages": [
